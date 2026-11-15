@@ -665,6 +665,7 @@ pub struct App {
     /// Successful uploads stay visible while Spotify propagates the new image.
     uploaded_covers: std::collections::HashMap<String, crate::playlist_cover::PendingCover>,
     pub show_queue_panel: bool,
+    show_now_playing_panel: bool,
     pub show_lyrics_panel: bool,
     /// Friend activity takes the right panel's place, so at most one of the
     /// Queue, Lyrics and Friend activity is open.
@@ -1397,6 +1398,7 @@ impl App {
             cover_uploads: HashMap::new(),
             uploaded_covers: Default::default(),
             show_queue_panel: session.queue_open.unwrap_or(false),
+            show_now_playing_panel: session.now_playing_open.unwrap_or(true),
             show_lyrics_panel: false,
             show_friends_panel: false,
             friends: Loadable::NotLoaded,
@@ -2324,6 +2326,14 @@ impl App {
             duration_ms: now.duration_ms,
             ..Track::default()
         }))
+    }
+
+    pub fn now_playing_panel_visible(&self) -> bool {
+        self.show_now_playing_panel
+            && !self.show_queue_panel
+            && !self.show_lyrics_panel
+            && !self.show_friends_panel
+            && self.lyrics_fullscreen.is_none()
     }
 
     pub fn now_playing(&self) -> Option<NowPlaying> {
@@ -12556,6 +12566,7 @@ impl App {
                 | Action::Forward
                 | Action::SignOut
                 | Action::ToggleWinampWindow
+                | Action::ToggleNowPlayingPanel
                 | Action::ToggleFriendsPanel
         ) {
             // ToggleQueuePanel is deliberately absent: in lyrics fullscreen
@@ -13421,6 +13432,15 @@ impl App {
             Action::ToggleSidebar => {
                 self.settings.sidebar_visible = !self.settings.sidebar_visible;
                 self.settings_dirty = true;
+            }
+            Action::ToggleNowPlayingPanel => {
+                self.show_now_playing_panel = !self.now_playing_panel_visible();
+                if self.show_now_playing_panel {
+                    self.show_queue_panel = false;
+                    self.show_lyrics_panel = false;
+                    self.show_friends_panel = false;
+                }
+                self.session_dirty = true;
             }
             Action::ToggleQueuePanel => {
                 self.show_queue_panel = !self.show_queue_panel;
@@ -15049,6 +15069,7 @@ impl App {
                 window_pos: self.window_geometry.position,
                 window_maximized: self.window_geometry.maximized,
                 queue_open: Some(self.show_queue_panel),
+                now_playing_open: Some(self.show_now_playing_panel),
                 queue_tab: Some(self.queue_tab.encode().to_string()),
                 winamp_pos: self.winamp.geometry.position,
                 milkdrop_pos: self.milkdrop_pos,

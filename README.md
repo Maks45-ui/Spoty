@@ -1,12 +1,14 @@
 # Spoty
 
-Оконный клиент Spotify для Windows на Rust. В версии 0.2.0 локальное воспроизведение работает через Spotify Soloist, официальный фоновый компонент Spotify. После первого сопряжения обычное приложение Spotify можно закрыть.
+Оконный клиент Spotify для Windows на Rust. Локальное воспроизведение работает через Spotify Soloist, официальный фоновый компонент Spotify. После первого сопряжения обычное приложение Spotify можно закрыть.
+
+Правая панель **Now playing** показывает обложку, название трека, исполнителя и альбом. Открывай и закрывай её круглой кнопкой с треугольником в нижнем плеере. Чтобы изменить ширину, перетащи левую границу панели.
 
 ## Установка и первый запуск
 
 1. Скачай `Spoty-Setup-x64.exe` из [Releases](https://github.com/Maks45-ui/Spoty/releases). Для загрузки нужен доступ к приватному репозиторию. Тестовый установщик без цифровой подписи.
 2. Полностью закрой предыдущий Spoty через меню в области уведомлений. Запусти установщик и открой Spoty из меню «Пуск».
-3. Введи Client ID приложения из [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). Подойдёт прежний Client ID с Redirect URI `http://127.0.0.1:8989/login`. Эта версия хранит настройки и сеанс отдельно, поэтому вход потребуется снова.
+3. Если Spoty попросит войти, введи Client ID приложения из [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). Подойдёт прежний Client ID с Redirect URI `http://127.0.0.1:8989/login`.
 4. Нажми **Set up Soloist** или открой **Settings → Spotify Soloist**. Получи личный [Soloist API Key](https://developer.spotify.com/dashboard/soloist) и введи его в Spoty. Этот ключ отличается от Client ID. Spoty скачает Soloist напрямую с серверов Spotify.
 5. Для первого сопряжения запусти трек в обычном Spotify под тем же аккаунтом и выбери в списке устройств **Spoty Soloist (…)**. Когда Spoty подтвердит подключение, нажми **Start listening**. После этого можно закрыть обычный Spotify и выбирать треки в Spoty.
 

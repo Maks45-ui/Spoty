@@ -1366,6 +1366,7 @@ pub enum Action {
     PlayOnAnotherDevice,
     ToggleSidebar,
     ToggleQueuePanel,
+    ToggleNowPlayingPanel,
     ToggleLyricsPanel,
     /// Show or hide what friends are listening to, in the right panel.
     ToggleFriendsPanel,

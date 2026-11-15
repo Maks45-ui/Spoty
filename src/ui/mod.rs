@@ -13,6 +13,7 @@ pub mod library;
 pub mod login;
 mod lyrics;
 pub mod new_releases;
+mod now_playing;
 pub mod player_bar;
 mod prerelease;
 pub mod queue;
@@ -107,6 +108,9 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         if app.show_friends_panel {
             friends::side_panel(app, ui);
         }
+        if app.now_playing_panel_visible() {
+            now_playing::side_panel(app, ui);
+        }
         central(app, ui);
     }
     keep_room_for_panels(app, ctx);
@@ -151,7 +155,11 @@ fn keep_room_for_panels(app: &App, ctx: &Context) {
     let width = main_min_width(
         topbar::least_width(ctx),
         panels && app.settings.sidebar_visible,
-        panels && (app.show_queue_panel || app.show_lyrics_panel || app.show_friends_panel),
+        panels
+            && (app.show_queue_panel
+                || app.show_lyrics_panel
+                || app.show_friends_panel
+                || app.now_playing_panel_visible()),
     )
     .round();
     let id = Id::new("main-min-width");

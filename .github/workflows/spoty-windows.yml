@@ -69,4 +69,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/Spoty-Setup-x64.exe dist/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Spoty Windows x64 preview" \
-            --notes "Windows 10/11 x64. Spoty can play locally with Spotify Soloist after one-time setup. A personal Spotify Client ID and Soloist API key are required. The app downloads Soloist directly from Spotify. Unsigned preview based on Spotifast (MIT)."
+            --notes "Windows 10/11 x64. Adds a resizable Now playing sidebar with artwork, title, artist and album. Preserves the Spotify Soloist setup from 0.2.0. Unsigned preview based on Spotifast (MIT)."

@@ -941,8 +941,10 @@ fn transport(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, region:
 }
 
 /// What the right of the bar always holds, in points: the volume slider and
-/// its button, the devices, queue and lyrics buttons, and the gaps.
-const EXTRAS_WIDTH: f32 = 92.0 + 4.0 * (18.0 + theme::ICON_BUTTON_PAD) + 4.0 * 6.0 + 4.0;
+/// its button, the devices, queue, lyrics and now playing buttons, and the gaps.
+const VOLUME_SLIDER_WIDTH: f32 = 60.0;
+const EXTRAS_WIDTH: f32 =
+    VOLUME_SLIDER_WIDTH + 5.0 * (18.0 + theme::ICON_BUTTON_PAD) + 5.0 * 6.0 + 4.0;
 
 /// Whether the full screen button has room beside the rest, keeping clear of
 /// the transport, with `room` points to the right of it.
@@ -985,7 +987,7 @@ fn extras(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, transport_
             egui::Id::new("volume-slider"),
             &gettext(app.locale, "Volume (%)"),
             shown as f32 / 100.0,
-            92.0,
+            VOLUME_SLIDER_WIDTH,
             Some(0.05),
         ) {
             SliderEvent::Dragging(value) => {
@@ -1101,6 +1103,22 @@ fn extras(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, transport_
     .clicked()
     {
         app.actions.push(Action::ToggleLyricsPanel);
+    }
+    if theme::icon_button(
+        ui,
+        Icon::CirclePlay,
+        18.0,
+        if app.now_playing_panel_visible() {
+            palette.accent
+        } else {
+            palette.secondary
+        },
+        palette.text,
+        &gettext(app.locale, "Now playing"),
+    )
+    .clicked()
+    {
+        app.actions.push(Action::ToggleNowPlayingPanel);
     }
     // The Listening activity button is the first to go in a narrow window,
     // so it never crowds the transport.
