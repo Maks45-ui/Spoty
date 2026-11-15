@@ -633,7 +633,7 @@ const RECENTS_PAGE: u32 = 50;
 /// Who the desktop's media controls belong to. Links to Spotify, as
 /// `spotify:` URIs or web addresses, are what they may ask Spotsie to open.
 fn media_app() -> fastframe_now_playing::App {
-    let mut app = fastframe_now_playing::App::new("spotsie", "Spotsie");
+    let mut app = fastframe_now_playing::App::new("spoty", "Spoty");
     app.uri_schemes = vec!["spotify".into(), "https".into(), "http".into()];
     app
 }
@@ -694,14 +694,14 @@ fn play_pause_label(playing: bool) -> &'static str {
 fn tray_config() -> fastframe_tray::Config {
     use fastframe_tray::MenuItem;
     fastframe_tray::Config {
-        id: "spotsie",
-        title: "Spotsie".into(),
+        id: "spoty",
+        title: "Spoty".into(),
         icon: util::app_icon_rgba,
         template_icon: Some(util::tray_template_rgba),
         themed_icon: true,
         menu_on_click: false,
         menu: vec![
-            MenuItem::action(TRAY_SHOW, "Show or hide Spotsie"),
+            MenuItem::action(TRAY_SHOW, "Show or hide Spoty"),
             MenuItem::Separator,
             MenuItem::action(TRAY_PLAY_PAUSE, play_pause_label(false)),
             MenuItem::action(TRAY_NEXT, "Next"),
@@ -9804,9 +9804,9 @@ impl App {
     /// Keeps the current track in the window and taskbar title (#94).
     fn sync_window_title(&mut self, ctx: &egui::Context) {
         let title = match self.now_playing().filter(|now| now.playing) {
-            Some(now) if now.subtitle.is_empty() => format!("{} - Spotsie", now.title),
+            Some(now) if now.subtitle.is_empty() => format!("{} - Spoty", now.title),
             Some(now) => format!("{} - {}", now.subtitle, now.title),
-            None => "Spotsie".to_string(),
+            None => "Spoty".to_string(),
         };
         if title != self.window_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));

@@ -8,7 +8,7 @@ fn main() {
         let mut resource = winresource::WindowsResource::new();
         resource
             .set_icon("packaging/windows/spotsie.ico")
-            .set("ProductName", "Spotsie")
+            .set("ProductName", "Spoty")
             .set("FileDescription", "A native Spotify client");
         if let Err(error) = resource.compile() {
             println!("cargo:warning=Windows resources not embedded: {error}");

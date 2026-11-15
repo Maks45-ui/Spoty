@@ -17,11 +17,11 @@ pub struct AppDirs {
 
 impl AppDirs {
     pub fn discover() -> Self {
-        Self::for_name("spotsie")
+        Self::for_name("spoty")
     }
 
     fn for_name(name: &str) -> Self {
-        let project = ProjectDirs::from("io.github", "ahaan-shah", name);
+        let project = ProjectDirs::from("io.github", "Maks45-ui", name);
         match project {
             Some(project) => Self {
                 config: project.config_dir().to_path_buf(),
@@ -70,7 +70,7 @@ impl AppDirs {
 
     /// The log of the current run, replaced at every start.
     pub fn log_file(&self) -> PathBuf {
-        self.state.join("spotsie.log")
+        self.state.join("spoty.log")
     }
 
     /// Where a panic is recorded before the process dies of it.

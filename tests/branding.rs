@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const COMMAND: &str = env!("CARGO_BIN_EXE_spotsie");
+const COMMAND: &str = env!("CARGO_BIN_EXE_spoty");
 
 struct Scratch(PathBuf);
 
@@ -26,16 +26,16 @@ fn the_command_reports_its_name_and_passes_the_update_version_check() {
     assert!(output.status.success());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap().trim(),
-        format!("spotsie {}", env!("CARGO_PKG_VERSION"))
+        format!("spoty {}", env!("CARGO_PKG_VERSION"))
     );
     let help = Command::new(COMMAND).arg("--help").output().unwrap();
     assert!(help.status.success());
     assert!(
         String::from_utf8(help.stdout)
             .unwrap()
-            .contains("Usage: spotsie")
+            .contains("Usage: spoty")
     );
-    assert_eq!(spotsie::updates::CONFIG.slug, "spotsie");
+    assert_eq!(spotsie::updates::CONFIG.slug, "spoty");
 }
 
 /// The app's earlier names are gone from the code, assets and packaging.
@@ -113,7 +113,7 @@ fn existing_preferences_and_custom_connect_names_survive_a_save() {
         saved.save(&path);
         assert_eq!(Settings::load(&path), saved);
     }
-    assert_eq!(Settings::default().device_name, "Spotsie");
+    assert_eq!(Settings::default().device_name, "Spoty");
 }
 
 #[cfg(target_os = "linux")]

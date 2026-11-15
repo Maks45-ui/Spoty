@@ -23,9 +23,9 @@ pub const CONFIG: UpdateConfig = UpdateConfig {
     // carry the key: from then on an unsigned release is refused.
     publisher_key: None,
     ..UpdateConfig::new(
-        "ahaan-shah/spotsie",
-        "Spotsie",
-        "spotsie",
+        "Maks45-ui/Spoty",
+        "Spoty",
+        "spoty",
         env!("CARGO_PKG_VERSION"),
     )
 };

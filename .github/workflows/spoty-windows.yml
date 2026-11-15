@@ -1,0 +1,72 @@
+name: Spoty Windows Preview
+
+on:
+  push:
+    tags: ['spoty-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build Rust client
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --release --target x86_64-pc-windows-msvc --bin spoty
+      - name: Build installer
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $binary = Join-Path $PWD 'target\x86_64-pc-windows-msvc\release\spoty.exe'
+          & $iscc "/DBinary=$binary" "/DOutputDir=$PWD\dist" packaging\windows\spoty.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test installation and removal
+        run: |
+          $setup = Join-Path $PWD 'dist\Spoty-Setup-x64.exe'
+          $installed = Join-Path $env:LOCALAPPDATA 'Programs\Spoty'
+          $result = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru -Wait
+          if ($result.ExitCode -ne 0) { throw "Install exited with $($result.ExitCode)" }
+          $binary = Join-Path $installed 'spoty.exe'
+          $source = Join-Path $PWD 'target\x86_64-pc-windows-msvc\release\spoty.exe'
+          if ((Get-FileHash $binary).Hash -ne (Get-FileHash $source).Hash) { throw 'The installed program does not match the build' }
+          $client = Start-Process $binary -ArgumentList '--version' -PassThru -Wait
+          if ($client.ExitCode -ne 0) { throw "Spoty exited with $($client.ExitCode)" }
+          $uninstall = Join-Path $installed 'unins000.exe'
+          $result = Start-Process $uninstall -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru -Wait
+          if ($result.ExitCode -ne 0 -or (Test-Path $binary)) { throw 'Uninstall failed' }
+          "$( (Get-FileHash $setup).Hash.ToLowerInvariant() )  Spoty-Setup-x64.exe" | Set-Content -Encoding ascii dist\SHA256SUMS.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Spoty-Windows-x64
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/spoty-v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: Spoty-Windows-x64
+          path: dist
+      - name: Publish private preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/Spoty-Setup-x64.exe dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Spoty Windows x64 preview" \
+            --notes "Windows 10/11 x64. Unsigned preview. Spotify Premium and a personal Spotify OAuth Client ID are required for playback. Based on Spotsie v0.1.8 (MIT)."

@@ -485,9 +485,9 @@ main{{max-width:28rem;padding:2.5rem;border-radius:1.25rem;background:#181b20;bo
 
 fn success_page() -> String {
     page(
-        "Signed in to Spotsie",
+        "Signed in to Spoty",
         "You're signed in",
-        "You can close this tab and go back to Spotsie.",
+        "You can close this tab and go back to Spoty.",
         "#1ed760",
     )
 }
@@ -496,7 +496,7 @@ fn failure_page(reason: &str) -> String {
     page(
         "Sign-in failed",
         "Sign-in didn't complete",
-        &format!("{reason}. Return to Spotsie and try again."),
+        &format!("{reason}. Return to Spoty and try again."),
         "#f5717f",
     )
 }

@@ -419,7 +419,7 @@ pub(crate) fn run() -> eframe::Result<()> {
     // Launched from a desktop, stderr goes nowhere; keep the run's log where
     // a bug report can find it, and a line per panic in the panic log (with
     // any link in its message removed: a URL can carry a token).
-    if let Err(error) = fastframe_log::Logging::new("spotsie", env!("CARGO_PKG_VERSION"))
+    if let Err(error) = fastframe_log::Logging::new("spoty", env!("CARGO_PKG_VERSION"))
         .filter(default_filter)
         .file(dirs.log_file())
         .panic_log(dirs.panic_log())
@@ -667,13 +667,13 @@ fn parse_demo_drag(spec: &str) -> Result<[egui::Pos2; 2], String> {
 fn native_options(fullscreen: bool, inner_size: Option<[f32; 2]>) -> eframe::NativeOptions {
     // Keep the native profile path even when Flatpak supplies its app ID.
     #[cfg(target_os = "linux")]
-    let persistence_path = eframe::storage_dir("spotsie").map(|dir| dir.join("app.ron"));
+    let persistence_path = eframe::storage_dir("spoty").map(|dir| dir.join("app.ron"));
     #[cfg(not(target_os = "linux"))]
     let persistence_path = None;
     #[cfg(target_os = "linux")]
     let app_id = desktop_entry();
     #[cfg(not(target_os = "linux"))]
-    let app_id = "spotsie";
+    let app_id = "spoty";
     let icon = if cfg!(target_os = "macos") {
         // macOS takes the dock icon from the bundle's .icns, which is the
         // 1024px drawing with the platform's rounding. Setting a window
@@ -683,7 +683,7 @@ fn native_options(fullscreen: bool, inner_size: Option<[f32; 2]>) -> eframe::Nat
         app_icon()
     };
     let viewport = egui::ViewportBuilder::default()
-        .with_title("Spotsie")
+        .with_title("Spoty")
         .with_app_id(app_id)
         .with_taskbar(true)
         .with_icon(icon);
@@ -715,7 +715,7 @@ fn native_options(fullscreen: bool, inner_size: Option<[f32; 2]>) -> eframe::Nat
 
 fn profile_options(mut options: eframe::NativeOptions) -> eframe::NativeOptions {
     if options.persist_window {
-        options.persistence_path = eframe::storage_dir("spotsie").map(|dir| dir.join("app.ron"));
+        options.persistence_path = eframe::storage_dir("spoty").map(|dir| dir.join("app.ron"));
     }
     options
 }
@@ -759,7 +759,7 @@ mod native_window_tests {
         let main = profile_options(native_options(false, None));
         assert_eq!(
             main.persistence_path,
-            eframe::storage_dir("spotsie").map(|dir| dir.join("app.ron"))
+            eframe::storage_dir("spoty").map(|dir| dir.join("app.ron"))
         );
         let demo_path = std::path::PathBuf::from("temporary/demo.ron");
         let demo = profile_options(demo_native_options(
@@ -778,12 +778,12 @@ mod native_window_tests {
             assert_eq!(main.viewport.app_id.as_deref(), Some(id.as_str()));
             assert_eq!(
                 main.persistence_path,
-                eframe::storage_dir("spotsie").map(|dir| dir.join("app.ron"))
+                eframe::storage_dir("spoty").map(|dir| dir.join("app.ron"))
             );
         }
         #[cfg(not(target_os = "linux"))]
         {
-            assert_eq!(main.viewport.app_id.as_deref(), Some("spotsie"));
+            assert_eq!(main.viewport.app_id.as_deref(), Some("spoty"));
             assert_eq!(main.persistence_path, None);
         }
         assert!(main.persist_window);
