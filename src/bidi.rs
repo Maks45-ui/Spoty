@@ -42,7 +42,7 @@ pub fn is_rtl(text: &str) -> bool {
 
 /// Whether the text holds a right-to-left letter anywhere, so its runs need
 /// reordering even when the paragraph reads left to right.
-fn has_rtl(text: &str) -> bool {
+pub fn has_rtl(text: &str) -> bool {
     !text.is_ascii() && text.chars().any(is_strong_rtl)
 }
 
@@ -841,34 +841,21 @@ mod tests {
     fn assert_rows_follow_uba(galley: &Galley, atlas: &egui::ColorImage) {
         use unicode_bidi::BidiDataSource as _;
         let text = galley.text();
+        let char_end = |byte: usize| byte + text[byte..].chars().next().map_or(0, char::len_utf8);
         for (index, placed) in galley.rows.iter().enumerate() {
             let glyphs = &placed.row.glyphs;
             if glyphs.is_empty() {
                 continue;
             }
-            // Each glyph carries the byte offset of the character it draws.
-            // A character can shape into several glyphs (Arabic letters and
-            // their dots), the extra ones zero-width and naming the same
-            // character, so a row's text follows from those offsets, not
-            // from counting glyphs. An ellipsis stands for no character.
-            let in_text = |glyph: &Glyph| {
-                text.get(glyph.cluster as usize..)
-                    .and_then(|rest| rest.chars().next())
-                    == Some(glyph.chr)
-            };
-            let start = glyphs
+            // Shaping can give a character more than one glyph, so a row's
+            // text follows from the source byte each glyph records.
+            let byte = |glyph: &Glyph| glyph.cluster as usize;
+            let start = glyphs.iter().map(byte).min().expect("row has glyphs");
+            let end = glyphs
                 .iter()
-                .filter(|glyph| in_text(glyph))
-                .map(|glyph| glyph.cluster as usize)
-                .min()
-                .expect("a row draws some of the text");
-            let last = glyphs
-                .iter()
-                .filter(|glyph| in_text(glyph))
-                .map(|glyph| glyph.cluster as usize)
+                .map(|glyph| char_end(byte(glyph)))
                 .max()
-                .expect("a row draws some of the text");
-            let end = last + text[last..].chars().next().map_or(0, char::len_utf8);
+                .expect("row has glyphs");
             let paragraph_start = text[..start].rfind('\n').map_or(0, |at| at + 1);
             let paragraph_end = text[start..].find('\n').map_or(text.len(), |at| start + at);
             let paragraph = &text[paragraph_start..paragraph_end];
@@ -882,32 +869,33 @@ mod tests {
             let levels = info.reordered_levels(resolved, line);
             let row_text: Vec<(usize, char)> = text[start..end]
                 .char_indices()
-                .map(|(byte, chr)| (start + byte, chr))
+                .map(|(offset, chr)| (start + offset, chr))
                 .collect();
             let row_levels: Vec<Level> = row_text
                 .iter()
-                .map(|&(byte, _)| levels[byte - paragraph_start])
+                .map(|&(at, _)| levels[at - paragraph_start])
                 .collect();
             // Marks, joiners, and the letters a ligature absorbs draw no
             // glyph of their own, so only glyphs that advance are compared.
-            let advancing: std::collections::HashSet<usize> = glyphs
-                .iter()
-                .filter(|glyph| glyph.advance_width > 0.01 && in_text(glyph))
-                .map(|glyph| glyph.cluster as usize)
-                .collect();
+            let advances = |at: usize| {
+                glyphs
+                    .iter()
+                    .any(|glyph| byte(glyph) == at && glyph.advance_width > 0.01)
+            };
             let expected: String = BidiInfo::reorder_visual(&row_levels)
                 .into_iter()
-                .filter(|&offset| advancing.contains(&row_text[offset].0))
-                .map(|offset| row_text[offset].1)
+                .map(|offset| row_text[offset])
+                .filter(|&(at, _)| advances(at))
+                .map(|(_, chr)| chr)
                 .collect();
             let mut drawn: Vec<&Glyph> = glyphs
                 .iter()
-                .filter(|glyph| glyph.advance_width > 0.01 && in_text(glyph))
+                .filter(|glyph| glyph.advance_width > 0.01)
                 .collect();
             drawn.sort_by(|a, b| a.pos.x.total_cmp(&b.pos.x));
             let visual: String = drawn.iter().map(|glyph| glyph.chr).collect();
             assert_eq!(visual, expected, "row {index} of {paragraph:?}");
-            for glyph in glyphs.iter().filter(|glyph| in_text(glyph)) {
+            for glyph in glyphs {
                 let Some(bracket) =
                     unicode_bidi::HardcodedBidiData.bidi_matched_opening_bracket(glyph.chr)
                 else {
@@ -916,7 +904,7 @@ mod tests {
                 if !glyph.chr.is_ascii() || glyph.uv_rect.is_nothing() {
                     continue;
                 }
-                let rtl = levels[glyph.cluster as usize - paragraph_start].is_rtl();
+                let rtl = levels[byte(glyph) - paragraph_start].is_rtl();
                 // An opening bracket's ink sits left of centre; mirrored, right.
                 assert_eq!(
                     ink_leans_right(atlas, glyph),
@@ -978,7 +966,7 @@ mod tests {
     }
 
     /// Words, punctuation, digits, Latin runs, and brackets land where the
-    /// bidi algorithm puts them. Spotsie once reordered words itself for
+    /// bidi algorithm puts them. Spotifast once reordered words itself for
     /// stock egui; with the fork shaping each run in its own direction, that
     /// reversed punctuation next to a space a second time.
     #[test]

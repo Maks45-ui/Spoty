@@ -7,39 +7,20 @@ use crate::i18n::{Locale, gettext, ngettext};
 use crate::model::{Action, Dialog};
 use crate::theme;
 
-/// Whether a dialog was showing last frame, and since when.
-const OPENED_ID: &str = "dialog-opened-at";
-
 pub fn show(app: &mut App, ctx: &egui::Context) {
-    let opened_id = egui::Id::new(OPENED_ID);
     let Some(dialog) = app.dialog.clone() else {
-        ctx.data_mut(|data| data.remove::<f64>(opened_id));
         return;
     };
-    // A dialog fades in over its backdrop and lands, as Magpie's do.
-    let opened_at = ctx
-        .data(|data| data.get_temp::<f64>(opened_id))
-        .unwrap_or_else(|| {
-            let now = ctx.input(|input| input.time);
-            ctx.data_mut(|data| data.insert_temp(opened_id, now));
-            now
-        });
-    let arrival = crate::motion::appear(ctx, opened_at, 0.0, 0.28);
+    if let Dialog::CoverArt { url, shown, title } = &dialog {
+        cover_art(app, ctx, url, shown.as_deref(), title);
+        return;
+    }
     let palette = app.palette;
-    ctx.layer_painter(egui::LayerId::new(
-        egui::Order::Middle,
-        egui::Id::new("dialog-backdrop"),
-    ))
-    .rect_filled(
-        ctx.content_rect(),
-        0.0,
-        egui::Color32::from_black_alpha((if palette.dark { 150.0 } else { 80.0 } * arrival) as u8),
-    );
     let locale = app.locale;
     let frame = Frame::new()
         .fill(palette.overlay)
         .stroke(Stroke::new(1.0, palette.outline))
-        .corner_radius(CornerRadius::same(theme::RADIUS_CARD))
+        .corner_radius(CornerRadius::same(theme::RADIUS + 4))
         .inner_margin(Margin::same(24))
         .shadow(egui::epaint::Shadow {
             offset: [0, 10],
@@ -49,29 +30,27 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         });
     let response = egui::Modal::new(egui::Id::new("dialog"))
         .frame(frame)
-        // The dialog's own layer scales as it lands, so the dimming sits on
-        // a layer of its own beneath it and only fades.
-        .backdrop_color(egui::Color32::TRANSPARENT)
+        .backdrop_color(egui::Color32::from_black_alpha(if palette.dark {
+            150
+        } else {
+            80
+        }))
         .show(ctx, |ui| {
-            ui.set_opacity(arrival);
             ui.set_width(420.0);
             match dialog {
+                // Drawn by cover_art above.
+                Dialog::CoverArt { .. } => {}
                 Dialog::PersonalAppIntro => {
-                    theme::text(ui, gettext(locale, "Move to your own Spotify app"), theme::bold(20.0), palette.text);
+                    theme::text(ui, gettext(locale, "Register Spotifast with Spotify"), theme::bold(20.0), palette.text);
                     ui.add_space(12.0);
-                    for text in [
-                        gettext(locale, "You're signed in through the shared app Spotsie used before. Spotsie no longer offers it, and Spotify can stop accepting it at any time."),
-                        gettext(locale, "Set up your own free Spotify app so nothing stops your music. It takes a few minutes, and you can also find it later in Settings under Your Spotify app."),
-                    ] {
-                        ui.add(egui::Label::new(egui::RichText::new(text).font(theme::regular(14.0)).color(palette.secondary)).wrap());
-                        ui.add_space(10.0);
-                    }
+                    ui.add(egui::Label::new(egui::RichText::new(gettext(locale, "You're on the shared sign-in Spotifast used before. Spotifast no longer offers it, and Spotify can stop accepting it at any time. Register Spotifast so nothing stops your music. It takes about two minutes.")).font(theme::regular(14.0)).color(palette.secondary)).wrap());
+                    ui.add_space(10.0);
                     ui.add_space(8.0);
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if theme::pill_button(ui, &palette, &gettext(locale, "Set up my app"), true).clicked() {
+                    buttons(ui, |ui| {
+                        if theme::pill_button(ui, &palette, &gettext(locale, "Register Spotifast"), true).clicked() {
                             app.actions.push(Action::OpenPersonalAppSetup);
                         }
-                        if theme::pill_button(ui, &palette, &gettext(locale, "Later"), false).clicked() {
+                        if theme::pill_button(ui, &palette, &gettext(locale, "Not now"), false).clicked() {
                             app.actions.push(Action::CloseDialog);
                         }
                     });
@@ -91,8 +70,10 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                     );
                     ui.add_space(8.0);
                     let body = if owned {
+                        // Translators: {name} is a playlist name.
                         gettext(locale, "Delete “{name}”? You can recover it from Spotify for 90 days.")
                     } else {
+                        // Translators: {name} is a playlist name.
                         gettext(locale, "“{name}” will no longer appear in Your Library.")
                     }
                     .replace("{name}", &name);
@@ -105,7 +86,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         .wrap(),
                     );
                     ui.add_space(20.0);
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    buttons(ui, |ui| {
                         if theme::pill_button(
                             ui,
                             &palette,
@@ -154,7 +135,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         .wrap(),
                     );
                     ui.add_space(20.0);
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    buttons(ui, |ui| {
                         if theme::pill_button(ui, &palette, &gettext(locale, "Add anyway"), true).clicked() {
                             app.actions.push(Action::ConfirmAddToPlaylist {
                                 playlist_id: playlist_id.clone(),
@@ -211,7 +192,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         },
                     );
                     ui.add_space(16.0);
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    buttons(ui, |ui| {
                         if theme::pill_button(ui, &palette, &gettext(locale, "Done"), true).clicked() {
                             app.actions.push(Action::CloseDialog);
                         }
@@ -229,7 +210,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         egui::Label::new(
                             egui::RichText::new(gettext(
                                 locale,
-                                "Playback needs Spotify Premium. Free accounts can browse and search, but cannot play music through Spotsie.",
+                                "Playback needs Spotify Premium. Free accounts can browse and search, but cannot play music through Spotifast.",
                             ))
                             .font(theme::regular(14.0))
                             .color(palette.secondary),
@@ -237,7 +218,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         .wrap(),
                     );
                     ui.add_space(20.0);
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    buttons(ui, |ui| {
                         if theme::pill_button(ui, &palette, &gettext(locale, "OK"), true).clicked() {
                             app.actions.push(Action::CloseDialog);
                         }
@@ -246,15 +227,18 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
             }
         });
     app.dialog_rect = Some(response.response.rect);
-    let scale = 0.94 + 0.06 * crate::motion::ease_out_back(arrival);
-    let centre = response.response.rect.center().to_vec2();
-    ctx.set_transform_layer(
-        response.response.layer_id,
-        egui::emath::TSTransform::new(centre * (1.0 - scale), scale),
-    );
     if response.should_close() {
         app.actions.push(Action::CloseDialog);
     }
+}
+
+// Keep button rows content-sized when the shared modal area last held a taller dialog.
+fn buttons(ui: &mut egui::Ui, add_buttons: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+        Layout::right_to_left(Align::Center),
+        add_buttons,
+    );
 }
 
 fn duplicate_message(
@@ -272,32 +256,48 @@ fn duplicate_message(
         .collect();
     let one_item = items.len() == 1;
     let message = match names.as_slice() {
-        [] if one_item => gettext(
-            locale,
-            "This song is already in “{playlist}”. Add it again?",
-        ),
-        [] => gettext(
-            locale,
-            "This song is already in “{playlist}”. Add them anyway?",
-        ),
-        [name] if one_item => gettext(locale, "“{name}” is already in “{playlist}”. Add it again?")
+        [] if one_item => {
+            // Translators: {playlist} is a playlist name.
+            gettext(
+                locale,
+                "This song is already in “{playlist}”. Add it again?",
+            )
+        }
+        [] => {
+            // Translators: {playlist} is a playlist name.
+            gettext(
+                locale,
+                "This song is already in “{playlist}”. Add them anyway?",
+            )
+        }
+        [name] if one_item => {
+            // Translators: {name} is a song name and {playlist} a playlist name.
+            gettext(locale, "“{name}” is already in “{playlist}”. Add it again?")
+                .replace("{name}", name)
+                .into()
+        }
+        [name] => {
+            // Translators: {name} is a song name and {playlist} a playlist name.
+            gettext(
+                locale,
+                "“{name}” is already in “{playlist}”. Add them anyway?",
+            )
             .replace("{name}", name)
-            .into(),
-        [name] => gettext(
-            locale,
-            "“{name}” is already in “{playlist}”. Add them anyway?",
-        )
-        .replace("{name}", name)
-        .into(),
-        [first, second] => gettext(
-            locale,
-            "“{first}” and “{second}” are already in “{playlist}”. Add them anyway?",
-        )
-        .replace("{first}", first)
-        .replace("{second}", second)
-        .into(),
+            .into()
+        }
+        [first, second] => {
+            // Translators: {first} and {second} are song names, {playlist} a playlist name.
+            gettext(
+                locale,
+                "“{first}” and “{second}” are already in “{playlist}”. Add them anyway?",
+            )
+            .replace("{first}", first)
+            .replace("{second}", second)
+            .into()
+        }
         [first, second, rest @ ..] => ngettext(
             locale,
+            // Translators: {first} and {second} are song names, {count} is how many more songs are already in the playlist, and {playlist} is a playlist name.
             "“{first}”, “{second}”, and {count} more are already in “{playlist}”. Add them anyway?",
             "“{first}”, “{second}”, and {count} more are already in “{playlist}”. Add them anyway?",
             rest.len() as u32,
@@ -393,6 +393,7 @@ fn create_playlist(app: &mut App, ui: &mut egui::Ui) {
             ui,
             ngettext(
                 locale,
+                // Translators: {count} is the number of songs.
                 "{count} song will be added.",
                 "{count} songs will be added.",
                 count as u32,
@@ -407,7 +408,7 @@ fn create_playlist(app: &mut App, ui: &mut egui::Ui) {
     let name_value = name.trim().to_string();
     let public_value = *public;
     let uris = add_uris.clone();
-    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+    buttons(ui, |ui| {
         if busy {
             theme::spinner(ui, 18.0, palette.accent);
         } else {
@@ -468,12 +469,14 @@ fn edit_playlist(app: &mut App, ui: &mut egui::Ui) {
                         .include_bytes(selected.uri.clone(), selected.jpeg.clone());
                     ui.add(
                         egui::Image::new(selected.uri.clone())
+                            .texture_options(crate::images::COVER_TEXTURE)
                             .fit_to_exact_size(egui::vec2(72.0, 72.0))
                             .alt_text(gettext(locale, "Selected playlist cover")),
                     );
                 } else if let Some(url) = &existing_image {
                     ui.add(
                         egui::Image::new(url)
+                            .texture_options(crate::images::COVER_TEXTURE)
                             .fit_to_exact_size(egui::vec2(72.0, 72.0))
                             .alt_text(gettext(locale, "Current playlist cover")),
                     );
@@ -586,7 +589,7 @@ fn edit_playlist(app: &mut App, ui: &mut egui::Ui) {
     let name_value = name.trim().to_string();
     let description_value = description.trim().to_string();
     let public_value = *public;
-    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+    buttons(ui, |ui| {
         if busy {
             theme::spinner(ui, 18.0, palette.accent);
         } else {
@@ -654,5 +657,65 @@ mod tests {
             message,
             "“Honey” is already in “The best music ever”. Add them anyway?"
         );
+    }
+}
+
+/// A page's header cover, as large as the window allows, over the dimmed
+/// page. A click anywhere, on the cover or around it, or Esc closes it.
+fn cover_art(app: &mut App, ctx: &egui::Context, url: &str, shown: Option<&str>, title: &str) {
+    let palette = app.palette;
+    let side = cover_art_side(ctx.content_rect().size());
+    let response = egui::Modal::new(egui::Id::new("cover-art"))
+        .frame(Frame::new().shadow(egui::epaint::Shadow {
+            offset: [0, 10],
+            blur: 40,
+            spread: 0,
+            color: palette.shadow,
+        }))
+        .backdrop_color(egui::Color32::from_black_alpha(if palette.dark {
+            190
+        } else {
+            150
+        }))
+        .show(ctx, |ui| {
+            let (rect, cover) =
+                ui.allocate_exact_size(egui::Vec2::splat(side), egui::Sense::click());
+            cover.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Image, true, title));
+            super::widgets::paint_cover_with_thumbnail(
+                ui,
+                &palette,
+                super::widgets::CoverSources {
+                    requested: Some(url),
+                    previous: shown,
+                    ..Default::default()
+                },
+                rect,
+                8.0,
+                theme::Icon::Music,
+                Some(app.backend.art()),
+            );
+            cover.clicked()
+        });
+    app.dialog_rect = Some(response.response.rect);
+    if response.inner || response.should_close() {
+        app.actions.push(Action::CloseDialog);
+    }
+}
+
+/// The enlarged cover's side: as much of the window as leaves a margin
+/// around it, and no larger than Spotify's largest artwork, 640 pixels wide.
+fn cover_art_side(window: egui::Vec2) -> f32 {
+    (window.x.min(window.y) - 96.0).clamp(120.0, 640.0)
+}
+
+#[cfg(test)]
+mod cover_art_tests {
+    use super::cover_art_side;
+
+    #[test]
+    fn the_enlarged_cover_fits_the_window_up_to_spotifys_largest_artwork() {
+        assert_eq!(cover_art_side(egui::vec2(1240.0, 800.0)), 640.0);
+        assert_eq!(cover_art_side(egui::vec2(760.0, 620.0)), 524.0);
+        assert_eq!(cover_art_side(egui::vec2(100.0, 100.0)), 120.0);
     }
 }

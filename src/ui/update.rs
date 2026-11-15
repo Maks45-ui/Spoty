@@ -16,7 +16,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
     };
     let palette = app.palette;
     let locale = app.locale;
-    let title = gettext(locale, "Update Spotsie");
+    let title = gettext(locale, "Update Spotifast");
     let mut close = ctx.input(|input| input.key_pressed(egui::Key::Escape));
     let frame = Frame::new()
         .fill(palette.overlay)
@@ -30,7 +30,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
             color: palette.shadow,
         });
     egui::Window::new(title.as_ref())
-        .id(egui::Id::new("spotsie-update"))
+        .id(egui::Id::new("spotifast-update"))
         .title_bar(false)
         .resizable(false)
         .auto_sized()
@@ -86,6 +86,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         ui.add_space(6.0);
                         theme::text(
                             ui,
+                            // Translators: {received} and {total} are sizes in megabytes, such as 12.5.
                             gettext(locale, "{received} of {total} MB")
                                 .replace(
                                     "{received}",
@@ -111,7 +112,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         egui::Label::new(
                             RichText::new(gettext(
                                 locale,
-                                "Music playing on this computer will stop when Spotsie restarts.",
+                                "Music playing on this computer will stop when Spotifast restarts.",
                             ))
                             .font(theme::regular(14.0))
                             .color(palette.secondary),

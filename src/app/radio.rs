@@ -1,9 +1,8 @@
 //! Radio pages: Spotify's station for a song, playlist, album, or artist.
 //!
-//! The radio is the one Spotify's own "Go to radio" opens: Spotify names a
-//! radio playlist for the seed (a station, for playlists), and the page shows
-//! its songs. Its Play button plays exactly those, in that context, so the
-//! queue and other devices name the radio as Spotify does.
+//! Spotify mixes a station afresh each time it is resolved, so the page
+//! keeps the songs it was given and its Play button plays exactly those,
+//! with the station as their context so the queue names the radio.
 
 use super::*;
 
@@ -33,7 +32,11 @@ impl App {
                 .map(|artist| artist.name.clone()),
             _ => None,
         }?;
-        Some(gettext(self.locale, "{track} Radio").replace("{track}", &name))
+        Some(
+            // Translators: Keep {track} unchanged. It is the name of the song,
+            // playlist, album, or artist the radio is based on, not translated.
+            gettext(self.locale, "{track} Radio").replace("{track}", &name),
+        )
     }
 
     /// The seed's artwork, for the radio page's cover.
@@ -68,6 +71,28 @@ impl App {
             _ => None,
         };
         images.unwrap_or_default()
+    }
+
+    /// Opens the radio of a song shown in a list. The page takes its name
+    /// and cover from the song cache, which holds only songs that played or
+    /// came back from a radio, so a song from Liked Songs, a playlist or a
+    /// search opened as an unnamed "Radio" with no cover (#644). The row
+    /// already has the song's details, so cache them first. A cached entry
+    /// is kept, but takes the row's album when it has no artwork of its own:
+    /// an album's song list comes without the album.
+    pub(crate) fn open_song_radio(&mut self, uri: &str, track: &Track) {
+        if let Some(id) = util::uri_id(uri) {
+            let cached = self
+                .track_cache
+                .entry(id.to_owned())
+                .or_insert_with(|| track.clone());
+            let has_art = |t: &Track| t.album.as_ref().is_some_and(|a| !a.images.is_empty());
+            if !has_art(cached) && has_art(track) {
+                cached.album = track.album.clone();
+            }
+            self.track_used.insert(id.to_owned(), Instant::now());
+        }
+        self.open(Page::Radio(uri.to_string()));
     }
 
     /// Asks for the seed's songs unless the page already has or awaits them.
@@ -119,7 +144,7 @@ impl App {
         &mut self,
         seed: &str,
         generation: u64,
-        result: Result<crate::session_reads::Radio, String>,
+        result: Result<Vec<Track>, String>,
     ) {
         let Some(page) = self
             .radio_pages
@@ -130,8 +155,7 @@ impl App {
         };
         let refreshing = std::mem::take(&mut page.refreshing);
         match result {
-            Ok(crate::session_reads::Radio { context, songs }) => {
-                page.context = Some(context);
+            Ok(songs) => {
                 let uris = songs.iter().map(|track| track.uri.clone()).collect();
                 for track in &songs {
                     if let Some(id) = &track.id {

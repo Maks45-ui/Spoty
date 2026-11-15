@@ -6,50 +6,98 @@ nav_order: 2
 
 ## Install
 
-Choose your system on the [Download page](https://github.com/ahaan-shah/spotsie/releases) and follow its
-installation steps. Then open **Spotsie**.
+Choose your system on the [Download page](/download/) and follow its
+installation steps. Then open **Spotifast**.
 
 ## Sign in
 
-The first time you open Spotsie, onboarding walks you through signing in:
+Spotify asks you to register Spotifast once. It no longer lets one
+registration serve everyone, so each listener makes their own and gets a
+**Client ID** to paste into Spotifast. It takes about two minutes and needs no
+code. Spotify requires Premium on the account that registers, so a Free
+account can't do this step itself. The sign-in screen shows these same steps.
 
-1. **Get started** shows four short steps for making your own free Spotify
-   app on Spotify's developer website. Spotify requires one for each
-   listener, and the account that makes it needs Premium.
-   [Your Spotify app](make-it-even-faster.md) has the same steps and what to
-   do if one goes wrong.
-2. Paste the app's **Client ID** and press **Sign in with Spotify**. Your
-   browser opens Spotify's sign-in page.
-3. Approve access there, and Spotsie opens your library by itself.
+### Register Spotifast with Spotify {#make-a-spotify-app}
 
-Spotsie never sees your Spotify password.
+1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard)
+   and sign in with your Spotify account.
+2. Click **Create app**. "App" is Spotify's word for this registration: you
+   aren't building anything, and nobody else sees it. Any name and description
+   will do.
+3. Under **Redirect URIs**, add exactly this address. The sign-in screen
+   has a **Copy** button for it.
 
-Spotsie remembers your sign-in using your computer's protected storage,
-so you normally do not need to sign in each time you open the app.
+   ```
+   http://127.0.0.1:8989/login
+   ```
+
+4. Tick **Web API**, accept the terms, and save.
+5. Spotify's page for your registration shows the **Client ID**. Copy it.
+
+### Sign in with it
+
+Paste the Client ID into the sign-in screen and press **Sign in with
+Spotify**. Your browser opens Spotify's sign-in page. Approve access there, then return to Spotifast to see your library. Spotifast never
+sees your Spotify password.
+
+- If Spotify's page says **Invalid redirect URI**, the address from step 3
+  is missing or differs by a character. Add it exactly, save, and sign in
+  again.
+- If the sign-in screen says Spotify doesn't know the Client ID, copy it
+  again from Spotify's developer dashboard. Spotifast asks Spotify before
+  opening the browser.
+- If it says Spotify didn't let the account use the Client ID, sign in with
+  the Spotify account that registered it, and check that it has Premium.
+
+Spotifast remembers your sign-in using your computer's protected storage,
+so you normally do not need to sign in each time you open the app. It keeps
+the Client ID after you sign out, so signing in again is one click.
+
+If you signed in before version 0.14.2, you stay signed in as before until
+Spotify stops accepting it; then the sign-in screen asks you to register
+Spotifast. [Make It Even Faster](/make-it-even-faster/#shared-app) explains why.
 
 ## Enable playback on this computer
+
+Since 0.15, Spotifast leads with **Set up Soloist** after
+sign-in, including the first launch after updating. Follow the
+[Soloist setup](/soloist/) or choose **Use the built-in player** for the
+playback described below. Your choice is remembered. Soloist setup appears
+only on platforms Spotify supports and is skipped for Spotify Free accounts.
 
 **Playing music requires Spotify Premium.** To listen on this computer,
 open the device menu in the bottom player bar and select **Set up playback
 here**, or find the same option in Settings.
 
 Spotify asks you to approve playback separately from library access. Follow
-the browser prompt once; Spotsie remembers this approval too.
-[Read more about the two sign-ins](../_reference/how-it-connects.md).
+the browser prompt once; Spotifast remembers this approval too.
+[Read more about the two sign-ins](/how-it-connects/).
 
-The computer then appears as a Spotify Connect device named **Spotsie**.
+The computer then appears as a Spotify Connect device named **Spotifast**.
 You can rename it in Settings.
 
 ## Basics
 
-- **Closing the window does not stop the music.** Spotsie keeps playing
+- **Closing the window does not stop the music.** Spotifast keeps playing
   from the system tray; reopen it from the tray icon and quit from the tray
   menu or Ctrl+Q. On macOS you can also reopen it from the Dock. Settings can
-  turn this off. On Linux, including Flatpak, a desktop with a working system
+  turn this off, and on macOS can keep Spotifast out of the Dock, in the menu
+  bar only. On Linux, including Flatpak, a desktop with a working system
   tray is required for this behavior.
+- **The tray icon can match your panel.** On Linux and Windows, **Settings >
+  Playback on this computer > Tray icon** shows it in colour, white or black.
+  The macOS menu bar already draws it black or white to match itself.
+- **Spotifast can start with your computer.** Under **Settings > Playback on
+  this computer**, **Start with your computer** opens it when you log in,
+  **With the window** or quietly **In the tray** (**In the menu bar** on
+  macOS).
 - **Play and Pause fade.** With the default audio settings, music played on
   this computer fades in or out to avoid a hard cut.
 - **Play buttons show progress.** The button spins until Spotify responds.
+- **Pages keep their shape while they load.** Until Spotify answers, grey
+  rows and cards in the shape of the songs, albums and playlists to come
+  stand in for them. A list that is loading more at its end still shows
+  **Loading…**.
 - **Artist names are links.** Click a credited artist in the player bar to
   open their page, even while the rest of the song's details are loading.
 - **Common actions have shortcuts.** Space plays and pauses, Ctrl+F or `/`
@@ -61,34 +109,44 @@ You can rename it in Settings.
   In **Add to playlist**, type a playlist name to find it, or choose
   **New playlist**. Typing chooses the first match, so `Enter` adds to it;
   the up and down arrows choose another. You can add one song or a selection.
-  If the playlist already contains the song, Spotsie asks before adding
+  If the playlist already contains the song, Spotifast asks before adding
   another copy.
-- **Spotify links open in Spotsie.** A `spotify:` link shared from another
-  app opens its page, starting Spotsie if it is not running. Links to
+- **The heart likes, then adds to a playlist.** In the player bar, the heart
+  saves the playing song to Liked Songs. Once it is liked, the heart opens a
+  list of your playlists with their covers, Liked Songs checked at the top.
+  Check the playlists the song belongs in, uncheck Liked Songs to remove it
+  there, then choose **Done**. A playlist Spotifast has loaded shows a check
+  when it already holds the song; unchecking it takes the song out. A fainter
+  circle marks a playlist not read in full yet, which may already hold the
+  song: Done asks before adding another copy there, one playlist after
+  another. A click outside the list changes nothing.
+- **Spotify links open in Spotifast.** A `spotify:` link shared from another
+  app opens its page, starting Spotifast if it is not running. Links to
   `open.spotify.com` go through the browser first, which hands them over the
-  same way. `spotsie <link>` does the same from a terminal.
+  same way. `spotifast <link>` does the same from a terminal.
 
 ## Match your desktop theme
 
-Open **Settings → Appearance → Theme** and choose **Follow system**, Spotsie's
-**Light** or **Dark**, or one of Magpie's themes. Follow system wears your
-desktop's pywal palette when there is one (on hyprahaan, the bar's and
-dock's colours, following every change), and otherwise matches your
-desktop's light or dark appearance. **Font**, just below, offers Inter and
-Magpie's other bundled fonts.
+Open **Settings → Appearance → Theme** and choose **Light**, **Dark**, or
+**Follow system**. Follow system matches your desktop's appearance.
 
-On Omarchy, Spotsie matches your desktop theme from the first time you open
+With Follow system, **Light mode theme** and **Dark mode theme** below it
+pick the theme for each: for example Catppuccin Latte while your computer is
+light and Catppuccin while it is dark. Spotifast switches between them as
+your computer does, without interrupting the music.
+
+On Omarchy, Spotifast matches your desktop theme from the first time you open
 it; the AUR package also installs the theme hook. Choose **Follow system** or **Omarchy**, then change your
-desktop theme: Spotsie's colours follow while the music keeps playing.
+desktop theme: Spotifast's colours follow while the music keeps playing.
 New installations already use Follow system. Updating keeps your previous
 theme choice.
 
 For your own colours or a manual installation, see
-[custom themes and Omarchy setup](../_reference/settings-and-files.md#custom-themes).
+[custom themes and Omarchy setup](/settings-and-files/#custom-themes).
 
 ## If song titles show empty boxes
 
-Spotsie uses your computer's fonts to display titles in different languages.
+Spotifast uses your computer's fonts to display titles in different languages.
 macOS and Windows already include fonts for most languages. On Linux,
 install `noto-fonts` and `noto-fonts-cjk` (Arch) or `fonts-noto` and
 `fonts-noto-cjk` (Debian or Ubuntu) if letters are missing.
@@ -98,19 +156,27 @@ For colour emoji, install the desktop's colour emoji font
 Titles can mix languages, including those written from right to left.
 Long titles are shortened with dots to fit the available space.
 
-![Japanese, Chinese, and Korean titles in a playlist](../assets/images/scripts.png)
+![Japanese, Chinese, and Korean titles in a playlist](/assets/images/scripts.png)
 
+## Choosing the interface language
+
+Spotifast uses your computer's language when it has a translation for it, and
+English otherwise. To pick another language, open **Settings → Appearance →
+Language**. Each language is listed under its own name, and the change applies
+at once. Choose **System** to follow the computer again. Spanish, Turkish and
+Ukrainian are complete; other translations are in progress, and anything not yet
+translated appears in English. See [Translating Spotifast](/translating/) to help.
 
 ## Choosing which app opens Spotify links
 
-On macOS, opening Spotsie makes it available for Spotify links. If Spotify's
+On macOS, opening Spotifast makes it available for Spotify links. If Spotify's
 own app is installed too, macOS uses whichever app last registered for them.
 On Windows, choose the app in **Settings → Apps → Default apps**.
 
 On Linux, after installing the current app launcher:
 
 ```sh
-xdg-mime default spotsie.desktop x-scheme-handler/spotify
+xdg-mime default spotifast.desktop x-scheme-handler/spotify
 ```
 
 ## If your network needs a proxy
@@ -118,42 +184,52 @@ xdg-mime default spotsie.desktop x-scheme-handler/spotify
 **In development, not included in 0.8.0:** you can configure a proxy, a server
 your network uses to reach the internet, on the sign-in screen or in
 **Settings → Proxy**. Enter the address, port, and any login details supplied
-by your network administrator. Spotsie protects the saved proxy password.
+by your network administrator. Spotifast protects the saved proxy password.
 If it cannot save the password, it tells you and uses it only until you quit.
 
 Playing music on this computer supports only HTTP proxies without a login.
 With other proxy types, music connects directly to Spotify even though
 browsing uses the proxy. Your browser has separate proxy settings, which may
 also need configuring for sign-in.
-See [proxy options and limits](../_reference/how-it-connects.md#proxy).
+See [proxy options and limits](/how-it-connects/#proxy).
 
 ## Build from source
 
 Build the single binary with Rust 1.98 or newer:
 
 ```bash
-cargo install --git https://github.com/ahaan-shah/spotsie --locked
+cargo install --git https://github.com/crmne/spotifast --locked
 ```
 
-On Linux, you need a C compiler and the development packages for ALSA,
-PulseAudio or PipeWire, and the windowing libraries. On Arch:
+MilkDrop uses libprojectM, which is built from source. This needs CMake, a C++
+compiler, and libclang. To build without MilkDrop or those tools, add
+`--no-default-features`. This also leaves out native Soloist audio capture on
+Mac and Windows. To keep that capture without MilkDrop, add
+`--no-default-features --features soloist-native-audio` (a C++ compiler is
+still needed). On Linux, you also need the development packages for
+ALSA and PipeWire, and the windowing libraries. On Arch:
 
 ```bash
-sudo pacman -S --needed base-devel alsa-lib libpulse libxkbcommon wayland
+sudo pacman -S --needed alsa-lib pipewire libxkbcommon wayland cmake clang
 ```
 
 On Debian or Ubuntu:
 
 ```bash
-sudo apt install build-essential libasound2-dev libpulse-dev libxkbcommon-dev \
-  libwayland-dev
+sudo apt install libasound2-dev libpipewire-0.3-dev libxkbcommon-dev libwayland-dev \
+  cmake clang libclang-dev
 ```
 
 On Fedora:
 
 ```bash
-sudo dnf install gcc alsa-lib-devel pulseaudio-libs-devel libxkbcommon-devel \
-  wayland-devel
+sudo dnf install alsa-lib-devel pipewire-devel libxkbcommon-devel \
+  wayland-devel cmake clang clang-devel
 ```
 
-On Windows, install the Visual Studio C++ build tools.
+On Windows, libprojectM is built with Visual Studio 2022, CMake, LLVM, and
+vcpkg (`vcpkg install glew:x64-windows-static`, with
+`VCPKG_INSTALLATION_ROOT` pointing at the vcpkg folder).
+
+With [Nix](https://nixos.org), `nix develop` in a checkout provides all of it,
+along with the exact toolchain `rust-toolchain.toml` pins.

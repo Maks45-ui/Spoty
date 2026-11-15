@@ -7,13 +7,13 @@
 use std::time::Duration;
 
 fn main() -> anyhow::Result<()> {
-    fastframe_log::Logging::new("spotsie", env!("CARGO_PKG_VERSION"))
+    fastframe_log::Logging::new("spotifast", env!("CARGO_PKG_VERSION"))
         .filter("warn")
         .init()?;
     let wanted = std::env::args().nth(1);
 
     println!("browsing for _spotify-connect._tcp ...");
-    let receivers = spotsie::zeroconf::discover(Duration::from_secs(4))?;
+    let receivers = spotifast::zeroconf::discover(Duration::from_secs(4))?;
     if receivers.is_empty() {
         println!("  none found");
         return Ok(());
@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
             "  {} at {}:{}",
             receiver.name, receiver.address, receiver.port
         );
-        match spotsie::zeroconf::get_info(&http, receiver) {
+        match spotifast::zeroconf::get_info(&http, receiver) {
             Ok(info) => println!(
                 "  [{} {} | token={} | active_user={:?}]",
                 info.remote_name, info.device_type, info.token_type, info.active_user
@@ -44,15 +44,15 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     };
 
-    let Some(spotsie::credentials::Grant::Playback(grant)) =
-        stored_grant(spotsie::credentials::Slot::Playback)?
+    let Some(spotifast::credentials::Grant::Playback(grant)) =
+        stored_grant(spotifast::credentials::Slot::Playback)?
     else {
-        anyhow::bail!("Enable playback in Spotsie first");
+        anyhow::bail!("Enable playback in Spotifast first");
     };
-    let credentials = spotsie::zeroconf::Credentials::from_playback(&grant)?;
+    let credentials = spotifast::zeroconf::Credentials::from_playback(&grant)?;
     println!("\nhanding the account to {} ...", receiver.name);
-    let info = spotsie::zeroconf::get_info(&http, receiver)?;
-    match spotsie::zeroconf::add_user(&http, receiver, &info, &credentials, "Spotsie") {
+    let info = spotifast::zeroconf::get_info(&http, receiver)?;
+    match spotifast::zeroconf::add_user(&http, receiver, &info, &credentials, "Spotifast") {
         Ok(()) => println!("  accepted"),
         Err(error) => {
             println!("  refused: {error}");
@@ -77,10 +77,10 @@ fn main() -> anyhow::Result<()> {
 
 /// The account's devices as Spotify currently sees them.
 fn devices() -> anyhow::Result<Vec<String>> {
-    let Some(spotsie::credentials::Grant::Web(token)) =
-        stored_grant(spotsie::credentials::Slot::Shared)?
+    let Some(spotifast::credentials::Grant::Web(token)) =
+        stored_grant(spotifast::credentials::Slot::Shared)?
     else {
-        anyhow::bail!("Sign in to Spotsie first");
+        anyhow::bail!("Sign in to Spotifast first");
     };
     let http = reqwest::blocking::Client::new();
     let body: serde_json::Value = http
@@ -107,13 +107,13 @@ fn devices() -> anyhow::Result<Vec<String>> {
 }
 
 fn stored_grant(
-    slot: spotsie::credentials::Slot,
-) -> anyhow::Result<Option<spotsie::credentials::Grant>> {
+    slot: spotifast::credentials::Slot,
+) -> anyhow::Result<Option<spotifast::credentials::Grant>> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     let loaded = runtime.block_on(async {
-        let store = spotsie::credentials::Store::new(spotsie::paths::AppDirs::discover());
+        let store = spotifast::credentials::Store::new(spotifast::paths::AppDirs::discover().dirs);
         store.lease(slot).load().await
     })?;
     if let Some(warning) = loaded.warning {

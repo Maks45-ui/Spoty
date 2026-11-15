@@ -1,8 +1,6 @@
 //! Shared palette, typography, icons, and base widgets.
 //!
-//! Inter draws the interface as Magpie draws it: regular, medium and
-//! semibold, with Inter Display for large titles. Lucide provides a
-//! consistent icon set.
+//! Inter provides real font weights, and Lucide provides a consistent icon set.
 //! All colors use [`Palette`] so light, dark, and album-art-tinted themes stay
 //! consistent.
 
@@ -34,118 +32,56 @@ pub struct Palette {
     pub warning: Color32,
     pub overlay: Color32,
     pub shadow: Color32,
+    /// The colour a page's header fades from when album art does not tint
+    /// it; its alpha is the strength. Transparent leaves the plain window.
+    #[serde(default)]
+    pub tint: Color32,
 }
 
 impl Palette {
-    /// The palette `t` of the way from this one to `other`. Whether it is
-    /// dark follows whichever side the blend is nearer.
-    #[must_use]
-    pub fn lerp(&self, other: &Self, t: f32) -> Self {
-        let mix = |a: Color32, b: Color32| crate::motion::lerp_color(a, b, t);
-        Self {
-            dark: if t < 0.5 { self.dark } else { other.dark },
-            window: mix(self.window, other.window),
-            panel: mix(self.panel, other.panel),
-            surface: mix(self.surface, other.surface),
-            surface_hover: mix(self.surface_hover, other.surface_hover),
-            surface_active: mix(self.surface_active, other.surface_active),
-            outline: mix(self.outline, other.outline),
-            text: mix(self.text, other.text),
-            secondary: mix(self.secondary, other.secondary),
-            dim: mix(self.dim, other.dim),
-            accent: mix(self.accent, other.accent),
-            accent_hover: mix(self.accent_hover, other.accent_hover),
-            on_accent: mix(self.on_accent, other.on_accent),
-            danger: mix(self.danger, other.danger),
-            warning: mix(self.warning, other.warning),
-            overlay: mix(self.overlay, other.overlay),
-            shadow: mix(self.shadow, other.shadow),
-        }
-    }
-
-    /// Spotsie Dark: the record's vinyl black with a whisper of green in its
-    /// greys, and the label's green as the accent.
     pub fn dark() -> Self {
         Self {
             dark: true,
-            window: Color32::from_rgb(0x0d, 0x0f, 0x0e),
-            panel: Color32::from_rgb(0x13, 0x16, 0x15),
-            surface: Color32::from_rgb(0x1b, 0x1f, 0x1d),
-            surface_hover: Color32::from_rgb(0x24, 0x29, 0x27),
-            surface_active: Color32::from_rgb(0x2d, 0x33, 0x30),
-            outline: Color32::from_rgb(0x27, 0x2c, 0x29),
-            text: Color32::from_rgb(0xee, 0xf3, 0xef),
-            secondary: Color32::from_rgb(0xa5, 0xaf, 0xa9),
-            dim: Color32::from_rgb(0x6b, 0x75, 0x6f),
+            window: Color32::from_rgb(0x0f, 0x11, 0x14),
+            panel: Color32::from_rgb(0x15, 0x18, 0x1c),
+            surface: Color32::from_rgb(0x1d, 0x21, 0x27),
+            surface_hover: Color32::from_rgb(0x26, 0x2b, 0x33),
+            surface_active: Color32::from_rgb(0x2f, 0x35, 0x3f),
+            outline: Color32::from_rgb(0x2a, 0x30, 0x38),
+            text: Color32::from_rgb(0xf2, 0xf4, 0xf6),
+            secondary: Color32::from_rgb(0xa9, 0xb1, 0xbc),
+            dim: Color32::from_rgb(0x6e, 0x77, 0x84),
             accent: Color32::from_rgb(0x1e, 0xd7, 0x60),
-            accent_hover: Color32::from_rgb(0x5f, 0xf5, 0x9c),
-            on_accent: Color32::from_rgb(0x06, 0x12, 0x0b),
+            accent_hover: Color32::from_rgb(0x3c, 0xe8, 0x7a),
+            on_accent: Color32::from_rgb(0x0a, 0x14, 0x0e),
             danger: Color32::from_rgb(0xf5, 0x71, 0x7f),
             warning: Color32::from_rgb(0xf2, 0xb8, 0x5c),
-            overlay: Color32::from_rgb(0x1f, 0x24, 0x21),
+            overlay: Color32::from_rgb(0x22, 0x27, 0x2e),
             shadow: Color32::from_black_alpha(140),
+            tint: Color32::TRANSPARENT,
         }
     }
 
-    /// Spotsie Light: the label's paper with the same green, deep enough to
-    /// read on white.
     pub fn light() -> Self {
         Self {
             dark: false,
-            window: Color32::from_rgb(0xf6, 0xf8, 0xf6),
+            window: Color32::from_rgb(0xf8, 0xf9, 0xfb),
             panel: Color32::from_rgb(0xff, 0xff, 0xff),
-            surface: Color32::from_rgb(0xec, 0xf0, 0xed),
-            surface_hover: Color32::from_rgb(0xe2, 0xe8, 0xe4),
-            surface_active: Color32::from_rgb(0xd6, 0xde, 0xd9),
-            outline: Color32::from_rgb(0xdb, 0xe2, 0xdd),
-            text: Color32::from_rgb(0x10, 0x15, 0x12),
-            secondary: Color32::from_rgb(0x51, 0x5c, 0x55),
-            dim: Color32::from_rgb(0x88, 0x92, 0x8c),
-            accent: Color32::from_rgb(0x12, 0xa1, 0x48),
-            accent_hover: Color32::from_rgb(0x0e, 0x8a, 0x3d),
+            surface: Color32::from_rgb(0xee, 0xf0, 0xf3),
+            surface_hover: Color32::from_rgb(0xe3, 0xe6, 0xeb),
+            surface_active: Color32::from_rgb(0xd7, 0xdb, 0xe1),
+            outline: Color32::from_rgb(0xdd, 0xe1, 0xe6),
+            text: Color32::from_rgb(0x14, 0x17, 0x1a),
+            secondary: Color32::from_rgb(0x53, 0x5b, 0x66),
+            dim: Color32::from_rgb(0x8b, 0x93, 0x9e),
+            accent: Color32::from_rgb(0x15, 0xa6, 0x4a),
+            accent_hover: Color32::from_rgb(0x12, 0x8f, 0x40),
             on_accent: Color32::WHITE,
             danger: Color32::from_rgb(0xd6, 0x3b, 0x4c),
             warning: Color32::from_rgb(0xb8, 0x7a, 0x14),
             overlay: Color32::from_rgb(0xff, 0xff, 0xff),
             shadow: Color32::from_black_alpha(50),
-        }
-    }
-
-    /// A palette from Magpie's design tokens, which name the same surfaces
-    /// differently; hovers are a touch of the text over the card, as there.
-    #[allow(clippy::too_many_arguments)]
-    fn from_magpie(
-        dark: bool,
-        [bg, sidebar, card, elevated, border]: [u32; 5],
-        [text, text2, text3]: [u32; 3],
-        [accent, on_accent, neg, warn]: [u32; 4],
-    ) -> Self {
-        let rgb = |v: u32| Color32::from_rgb((v >> 16) as u8, (v >> 8) as u8, v as u8);
-        let (card, text) = (rgb(card), rgb(text));
-        let wash = |amount: f32| crate::motion::lerp_color(card, text, amount);
-        let toward = if dark { Color32::WHITE } else { Color32::BLACK };
-        Self {
-            dark,
-            window: rgb(bg),
-            panel: rgb(sidebar),
-            surface: card,
-            surface_hover: wash(if dark { 0.08 } else { 0.06 }),
-            surface_active: wash(if dark { 0.14 } else { 0.11 }),
-            outline: rgb(border),
-            text,
-            secondary: rgb(text2),
-            dim: rgb(text3),
-            accent: rgb(accent),
-            accent_hover: crate::motion::lerp_color(rgb(accent), toward, 0.12),
-            on_accent: rgb(on_accent),
-            danger: rgb(neg),
-            warning: rgb(warn),
-            overlay: rgb(elevated),
-            shadow: if dark {
-                Color32::from_black_alpha(140)
-            } else {
-                Color32::from_rgba_premultiplied(20, 24, 40, 30)
-            },
+            tint: Color32::TRANSPARENT,
         }
     }
 
@@ -196,194 +132,50 @@ impl fastframe_theme::Palette for Palette {
             "warning" => self.warning = color,
             "overlay" => self.overlay = color,
             "shadow" => self.shadow = color,
+            "tint" => self.tint = color,
             _ => return false,
         }
         true
     }
+
+    /// Menus, tooltips and dialogs follow a file's window when it leaves
+    /// `overlay` out, as Omarchy's template and the shared palettes do:
+    /// otherwise they kept Spotifast's own blue-grey on every other theme.
+    /// The proportions are the built-in palettes': a step above the window
+    /// toward the text in dark ones, the panel in light ones.
+    fn derive(&mut self, given: &std::collections::BTreeSet<&str>) {
+        if given.contains("overlay") || !given.contains("window") {
+            return;
+        }
+        self.overlay = if self.dark {
+            self.window.lerp_to_gamma(self.text, 0.08)
+        } else {
+            self.panel
+        };
+    }
 }
+
+impl fastframe_theme::PaletteBase for Palette {
+    fn palette_base(&self) -> fastframe_theme::Base {
+        fastframe_theme::Base::from_dark(self.dark)
+    }
+}
+
+/// The palettes Follow system shows in light and dark mode.
+pub type ThemePair = fastframe_theme::Pair<Palette>;
 
 /// Adds the desktop's palettes to a normal launch: the eight shared palettes,
 /// installed into the themes folder as files on the first launch, and
 /// Omarchy's on Linux, with the packaged template and hook installed for the
 /// user.
-/// A theme that ships with Spotsie beside its own Light and Dark.
-#[derive(Clone, Debug)]
-pub struct BuiltinTheme {
-    pub name: &'static str,
-    pub palette: Palette,
-}
-
-/// The themes beside Spotsie's own Light and Dark, light then dark, as the
-/// picker lists them.
-pub fn builtin_themes() -> &'static [BuiltinTheme] {
-    static THEMES: std::sync::OnceLock<Vec<BuiltinTheme>> = std::sync::OnceLock::new();
-    THEMES.get_or_init(|| {
-        vec![
-            BuiltinTheme {
-                name: "Catppuccin Latte",
-                palette: Palette::from_magpie(
-                    false,
-                    [0xEFF1F5, 0xE6E9EF, 0xFBFCFE, 0xFFFFFF, 0xD8DCE5],
-                    [0x4C4F69, 0x6C6F85, 0x9CA0B0],
-                    [0x8839EF, 0xFFFFFF, 0xD20F39, 0xDF8E1D],
-                ),
-            },
-            BuiltinTheme {
-                name: "Rosé Pine Dawn",
-                palette: Palette::from_magpie(
-                    false,
-                    [0xFAF4ED, 0xF2E9E1, 0xFFFAF3, 0xFFFAF3, 0xDFDAD9],
-                    [0x575279, 0x797593, 0x9893A5],
-                    [0x907AA9, 0xFFFFFF, 0xB4637A, 0xEA9D34],
-                ),
-            },
-            BuiltinTheme {
-                name: "Flexoki",
-                palette: Palette::from_magpie(
-                    false,
-                    [0xF2F0E5, 0xE6E4D9, 0xFFFCF0, 0xFFFCF0, 0xDAD8CE],
-                    [0x100F0F, 0x6F6E69, 0x878580],
-                    [0x24837B, 0xFFFFFF, 0xAF3029, 0xAD8301],
-                ),
-            },
-            BuiltinTheme {
-                name: "Catppuccin",
-                palette: Palette::from_magpie(
-                    true,
-                    [0x1E1E2E, 0x181825, 0x252536, 0x313244, 0x35364A],
-                    [0xCDD6F4, 0xA6ADC8, 0x6C7086],
-                    [0xCBA6F7, 0x1E1E2E, 0xF38BA8, 0xF9E2AF],
-                ),
-            },
-            BuiltinTheme {
-                name: "Rosé Pine",
-                palette: Palette::from_magpie(
-                    true,
-                    [0x191724, 0x16141F, 0x1F1D2E, 0x26233A, 0x2A273F],
-                    [0xE0DEF4, 0x908CAA, 0x6E6A86],
-                    [0xC4A7E7, 0x191724, 0xEB6F92, 0xF6C177],
-                ),
-            },
-            BuiltinTheme {
-                name: "Nord",
-                palette: Palette::from_magpie(
-                    true,
-                    [0x2E3440, 0x2A2F3A, 0x353C4A, 0x3E4555, 0x444C5C],
-                    [0xECEFF4, 0xC2CAD8, 0x8690A4],
-                    [0x88C0D0, 0x242933, 0xD08770, 0xEBCB8B],
-                ),
-            },
-            BuiltinTheme {
-                name: "Tokyo Night",
-                palette: Palette::from_magpie(
-                    true,
-                    [0x1A1B26, 0x16161E, 0x1F2233, 0x262B40, 0x2C3148],
-                    [0xC8D1F7, 0x9AA3CC, 0x5E6690],
-                    [0x7AA2F7, 0x11131C, 0xF7768E, 0xE0AF68],
-                ),
-            },
-            BuiltinTheme {
-                name: "Everforest",
-                palette: Palette::from_magpie(
-                    true,
-                    [0x2D353B, 0x232A2E, 0x343F44, 0x3D484D, 0x475258],
-                    [0xD3C6AA, 0x9DA9A0, 0x7A8478],
-                    [0xA7C080, 0x232A2E, 0xE67E80, 0xDBBC7F],
-                ),
-            },
-            BuiltinTheme {
-                name: "Gruvbox",
-                palette: Palette::from_magpie(
-                    true,
-                    [0x1D2021, 0x191B1C, 0x282828, 0x32302F, 0x3C3836],
-                    [0xEBDBB2, 0xBDAE93, 0x7C6F64],
-                    [0xFABD2F, 0x1D2021, 0xFB4934, 0xFE8019],
-                ),
-            },
-        ]
-    })
-}
-
-/// The built-in theme called `name`, also by the names older builds saved.
-pub fn builtin_theme(name: &str) -> Option<&'static BuiltinTheme> {
-    let name = match name {
-        "Mocha" => "Catppuccin",
-        "Latte" => "Catppuccin Latte",
-        name => name,
-    };
-    builtin_themes().iter().find(|theme| theme.name == name)
-}
-
-/// Where pywal writes the desktop's palette: on hyprahaan, the colours of
-/// the bar, dock, launcher and lock screen.
-pub fn pywal_file() -> Option<std::path::PathBuf> {
-    std::env::var_os("XDG_CACHE_HOME")
-        .map(std::path::PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| std::path::Path::new(&home).join(".cache")))
-        .map(|cache| cache.join("wal").join("colors.json"))
-}
-
-/// A palette from pywal's `colors.json`: its background and foreground,
-/// with slot 9 as the accent, as hyprahaan uses it, and the surfaces mixed
-/// between them. `None` if the file is not pywal's.
-pub fn palette_from_pywal(json: &str) -> Option<Palette> {
-    let json: serde_json::Value = serde_json::from_str(json).ok()?;
-    let color = |value: &serde_json::Value| -> Option<Color32> {
-        let hex = value.as_str()?.trim_start_matches('#');
-        let value = u32::from_str_radix(hex.get(..6)?, 16).ok()?;
-        Some(Color32::from_rgb(
-            (value >> 16) as u8,
-            (value >> 8) as u8,
-            value as u8,
-        ))
-    };
-    let background = color(&json["special"]["background"])?;
-    let foreground = color(&json["special"]["foreground"])?;
-    let slot = |n: u8| color(&json["colors"][format!("color{n}")]);
-    let accent = slot(9).or_else(|| slot(4))?;
-    let luminance = |c: Color32| {
-        let linear = egui::Rgba::from(c);
-        0.2126 * linear.r() + 0.7152 * linear.g() + 0.0722 * linear.b()
-    };
-    let dark = luminance(background) < 0.25;
-    let mix = |amount: f32| crate::motion::lerp_color(background, foreground, amount);
-    let toward = if dark { Color32::WHITE } else { Color32::BLACK };
-    let on_accent = if luminance(accent) > 0.45 {
-        crate::motion::lerp_color(background, Color32::BLACK, 0.4)
-    } else {
-        Color32::WHITE
-    };
-    Some(Palette {
-        dark,
-        window: background,
-        panel: mix(0.03),
-        surface: mix(0.06),
-        surface_hover: mix(0.11),
-        surface_active: mix(0.16),
-        outline: mix(0.12),
-        text: foreground,
-        secondary: mix(0.68),
-        dim: mix(0.45),
-        accent,
-        accent_hover: crate::motion::lerp_color(accent, toward, 0.15),
-        on_accent,
-        danger: slot(1).unwrap_or(Palette::dark().danger),
-        warning: slot(3).unwrap_or(Palette::dark().warning),
-        overlay: mix(0.08),
-        shadow: if dark {
-            Color32::from_black_alpha(140)
-        } else {
-            Color32::from_black_alpha(50)
-        },
-    })
-}
-
 pub fn enable_desktop_themes(catalog: &mut Catalog) {
     catalog.enable_desktop_themes(fastframe_theme::DesktopThemes {
-        slug: "spotsie",
-        omarchy_template: include_str!("../contrib/omarchy/spotsie.json.tpl"),
-        // The template has not changed since it first shipped.
-        omarchy_previous_templates: &[],
+        slug: "spotifast",
+        omarchy_template: include_str!("../contrib/omarchy/spotifast.json.tpl"),
+        // The first template blended every shade from the background and
+        // foreground; an unchanged copy of it is upgraded to Omarchy's own
+        // semantic shades.
+        omarchy_previous_templates: &[include_str!("omarchy_template_v1.json.tpl")],
         presets: true,
     });
 }
@@ -394,8 +186,22 @@ pub fn catalog_detail(
     locale: Locale,
     selected: Option<&str>,
 ) -> Cow<'static, str> {
+    status_detail(catalog.status(selected), locale)
+}
+
+/// The status line under a Follow system light or dark theme setting.
+pub fn pair_detail(
+    catalog: &Catalog,
+    locale: Locale,
+    pair: &ThemePair,
+    base: fastframe_theme::Base,
+) -> Cow<'static, str> {
+    status_detail(pair.status(base, catalog), locale)
+}
+
+fn status_detail(status: Option<fastframe_theme::Status>, locale: Locale) -> Cow<'static, str> {
     use fastframe_theme::{Problem, Status};
-    let Some(status) = catalog.status(selected) else {
+    let Some(status) = status else {
         return Cow::Borrowed("");
     };
     match status {
@@ -422,26 +228,13 @@ pub fn catalog_detail(
         ),
         Status::Problem(_) => gettext(
             locale,
-            "Custom themes could not be loaded. Run spotsie reload-themes to try again.",
+            "Custom themes could not be loaded. Run spotifast reload-themes to try again.",
         ),
     }
 }
 
 pub const RADIUS: u8 = 8;
 pub const RADIUS_SMALL: u8 = 4;
-/// Magpie's radii: fields and buttons, menus, and cards.
-pub const RADIUS_SM: u8 = 9;
-pub const RADIUS_MENU: u8 = 12;
-pub const RADIUS_CARD: u8 = 14;
-
-/// The wash under a hovered row or field, `amount` of the way in: a touch
-/// of the text colour, so it shows on every surface, as Magpie draws it.
-pub fn hover_wash(palette: &Palette, amount: f32) -> Color32 {
-    crate::motion::with_alpha(
-        palette.text,
-        if palette.dark { 0.075 } else { 0.06 } * amount.clamp(0.0, 1.0),
-    )
-}
 pub const ROW_HEIGHT: f32 = 56.0;
 pub const COMPACT_ROW_HEIGHT: f32 = 48.0;
 /// The compact track list: one line, no cover.
@@ -452,6 +245,17 @@ pub const PLAYER_BAR_HEIGHT: f32 = 88.0;
 /// has to suit the other, or the window would jump on the swap.
 pub const SIDE_PANEL_MIN_WIDTH: f32 = 280.0;
 pub const TOP_BAR_HEIGHT: f32 = 56.0;
+pub const CUSTOM_TOP_BAR_HEIGHT: f32 = 48.0;
+
+/// Keep the custom Windows header close to its 36-point caption controls.
+/// Linux's custom title bar keeps the ordinary height.
+pub fn top_bar_height() -> f32 {
+    if cfg!(windows) && fastframe_titlebar::enabled() {
+        CUSTOM_TOP_BAR_HEIGHT
+    } else {
+        TOP_BAR_HEIGHT
+    }
+}
 
 /// macOS hides the titlebar and draws the window content all the way to the
 /// top edge, so whatever sits at the top of the window has to leave room for
@@ -478,34 +282,8 @@ pub fn semibold(size: f32) -> egui::FontId {
     fastframe_fonts::Weight::SemiBold.font_id(size)
 }
 
-/// The family drawing large titles: Inter's display optical size at
-/// semibold, the cut Magpie uses for its headings.
-const DISPLAY_FAMILY: &str = "inter-display";
-/// From this size, titles use the display cut.
-const DISPLAY_FROM: f32 = 20.0;
-
-/// The heaviest weight the interface uses. As in Magpie, that is semibold:
-/// the display cut for large titles, and the text cut below that.
 pub fn bold(size: f32) -> egui::FontId {
-    if size >= DISPLAY_FROM {
-        egui::FontId::new(size, egui::FontFamily::Name(DISPLAY_FAMILY.into()))
-    } else {
-        semibold(size)
-    }
-}
-
-const BRAND_FAMILY: &str = "brand";
-const BRAND_ITALIC_FAMILY: &str = "brand-italic";
-
-/// Spotsie's own headline face, Plus Jakarta Sans SemiBold, as the website
-/// sets its headings, whatever the interface font. For onboarding.
-pub fn brand(size: f32) -> egui::FontId {
-    egui::FontId::new(size, egui::FontFamily::Name(BRAND_FAMILY.into()))
-}
-
-/// Its italic, which the website gives the words it stresses.
-pub fn brand_italic(size: f32) -> egui::FontId {
-    egui::FontId::new(size, egui::FontFamily::Name(BRAND_ITALIC_FAMILY.into()))
+    fastframe_fonts::Weight::Bold.font_id(size)
 }
 
 /// How the desktop renders text, read once per process.
@@ -526,9 +304,10 @@ pub fn text_rendering() -> fastframe_text::TextRendering {
 
 /// Install fonts, icons, and the base style once.
 pub fn install(ctx: &egui::Context) {
-    install_fonts(ctx, DEFAULT_FONT);
+    install_fonts(ctx);
     egui_extras::install_image_loaders(ctx);
     fastframe_icons::install::<Icon>(ctx);
+    fastframe_titlebar::install(ctx);
     // Colour emoji over every text egui draws (see `crate::emoji`).
     ctx.add_plugin(fastframe_emoji::EmojiPlugin::default());
 }
@@ -630,9 +409,7 @@ fn apply_to_style(style: &mut egui::Style, palette: &Palette) {
     style.spacing.scroll = egui::style::ScrollStyle {
         bar_width: 8.0,
         floating_width: 6.0,
-        // A lane of its own, so the bar never sits over the end of a row's
-        // text.
-        floating_allocated_width: 10.0,
+        floating_allocated_width: 0.0,
         handle_min_length: 28.0,
         bar_inner_margin: 3.0,
         bar_outer_margin: 2.0,
@@ -646,167 +423,28 @@ fn apply_to_style(style: &mut egui::Style, palette: &Palette) {
     };
     style.interaction.selectable_labels = false;
     style.interaction.tooltip_delay = 0.4;
-    // Magpie's pace: panels slide and scroll glides take about a fifth of a
-    // second.
-    style.animation_time = 0.2;
+    style.animation_time = crate::motion::ANIMATION_TIME;
     style.url_in_tooltip = false;
 }
 
-/// A typeface the interface can be drawn in, as Magpie offers them.
-pub struct UiFont {
-    pub name: &'static str,
-    /// Every character the same width.
-    pub mono: bool,
-    /// Regular, medium and semibold. `None` is Inter, drawn from the full
-    /// variable font fastframe bundles.
-    faces: Option<[&'static [u8]; 3]>,
-}
-
-macro_rules! ui_font {
-    ($name:literal, $file:literal, $mono:literal) => {
-        UiFont {
-            name: $name,
-            mono: $mono,
-            faces: Some([
-                include_bytes!(concat!("../assets/fonts/", $file, "-Regular.ttf")),
-                include_bytes!(concat!("../assets/fonts/", $file, "-Medium.ttf")),
-                include_bytes!(concat!("../assets/fonts/", $file, "-SemiBold.ttf")),
-            ]),
-        }
-    };
-}
-
-/// The interface font unless another is chosen, as in Magpie.
-pub const DEFAULT_FONT: &str = "Inter";
-
-/// Every font Spotsie bundles: Magpie's set, all under the SIL Open Font
-/// License (`assets/fonts/OFL-LICENSES.txt`). They cover Latin; Inter stays
-/// behind each for every other script.
-pub const FONTS: &[UiFont] = &[
-    UiFont {
-        name: "Inter",
-        mono: false,
-        faces: None,
-    },
-    ui_font!("Geist", "Geist", false),
-    ui_font!("Onest", "Onest", false),
-    ui_font!("Plus Jakarta Sans", "PlusJakartaSans", false),
-    ui_font!("DM Sans", "DMSans", false),
-    ui_font!("Figtree", "Figtree", false),
-    ui_font!("Outfit", "Outfit", false),
-    ui_font!("IBM Plex Sans", "IBMPlexSans", false),
-    ui_font!("JetBrains Mono", "JetBrainsMono", true),
-];
-
-/// The font called `name`, or Inter for a name Spotsie does not know.
-pub fn font_by_name(name: &str) -> &'static UiFont {
-    FONTS
-        .iter()
-        .find(|font| font.name == name)
-        .unwrap_or(&FONTS[0])
-}
-
-/// A family that draws `name` at regular weight, for showing each font in
-/// its own face in the font menu.
-pub fn preview_family(name: &str) -> egui::FontFamily {
-    egui::FontFamily::Name(format!("preview-{}", font_by_name(name).name).into())
-}
-
-/// Draws the interface in `font` from the next frame on.
-pub fn set_font(ctx: &egui::Context, font: &str) {
-    install_fonts(ctx, font);
-}
-
-/// The chosen font at regular, medium and semibold, and at semibold for
-/// large titles (Inter's display cut, when Inter is the font), each with
-/// Inter behind it for the scripts the font lacks, then the monochrome emoji
-/// face (so every emoji wears the same style, ahead of egui's own pair),
-/// then the installed faces for the scripts Inter lacks, drawn the way the
-/// desktop renders text. Every bundled font also gets a preview family.
-fn install_fonts(ctx: &egui::Context, font: &str) {
-    use fastframe_fonts::Weight;
+/// Inter at its four weights with the monochrome emoji face right behind it
+/// (so every emoji wears the same style, ahead of egui's own pair), then the
+/// installed faces for the scripts Inter lacks, drawn the way the desktop
+/// renders text.
+fn install_fonts(ctx: &egui::Context) {
     let emoji = egui::FontData::from_static(include_bytes!("../assets/fonts/NotoEmoji.ttf"));
     let mut fonts = fastframe_fonts::FontSetup::default()
-        .weights(&[Weight::Regular, Weight::Medium, Weight::SemiBold])
         .companion("noto_emoji", std::sync::Arc::new(emoji))
         .definitions();
-    // The same variable font, at the optical size Inter Display is cut for.
-    let mut display = egui::FontData::from_static(fastframe_fonts::INTER);
-    display.tweak.coords =
-        egui::epaint::text::VariationCoords::new([(b"wght", 600.0), (b"opsz", 32.0)]);
-    fonts
-        .font_data
-        .insert(DISPLAY_FAMILY.to_owned(), std::sync::Arc::new(display));
-    let mut family = fonts.families[&Weight::SemiBold.family()].clone();
-    family[0] = DISPLAY_FAMILY.to_owned();
-    fonts
-        .families
-        .insert(egui::FontFamily::Name(DISPLAY_FAMILY.into()), family);
-    // The brand faces, with the semibold family behind them for scripts
-    // they lack.
-    for (name, face) in [
-        (
-            BRAND_FAMILY,
-            &include_bytes!("../assets/fonts/PlusJakartaSans-SemiBold.ttf")[..],
-        ),
-        (
-            BRAND_ITALIC_FAMILY,
-            &include_bytes!("../assets/fonts/PlusJakartaSans-SemiBoldItalic.ttf")[..],
-        ),
-    ] {
-        fonts.font_data.insert(
-            name.to_owned(),
-            std::sync::Arc::new(egui::FontData::from_static(face)),
-        );
-        let mut family = fonts.families[&Weight::SemiBold.family()].clone();
-        family.insert(0, name.to_owned());
-        fonts
-            .families
-            .insert(egui::FontFamily::Name(name.into()), family);
-    }
-    // Previews, before the chosen font takes the interface's families.
-    let regular = fonts.families[&Weight::Regular.family()].clone();
-    for each in FONTS {
-        let mut family = regular.clone();
-        if let Some([face, ..]) = each.faces {
-            let key = format!("{}-regular", each.name);
-            fonts.font_data.insert(
-                key.clone(),
-                std::sync::Arc::new(egui::FontData::from_static(face)),
-            );
-            family.insert(0, key);
-        }
-        fonts.families.insert(preview_family(each.name), family);
-    }
-    if let Some(faces) = font_by_name(font).faces {
-        let weights = [Weight::Regular, Weight::Medium, Weight::SemiBold];
-        for (weight, face) in weights.into_iter().zip(faces) {
-            let key = format!("ui-{}", weight.name());
-            fonts.font_data.insert(
-                key.clone(),
-                std::sync::Arc::new(egui::FontData::from_static(face)),
-            );
-            if let Some(family) = fonts.families.get_mut(&weight.family()) {
-                family.insert(0, key.clone());
-            }
-            if weight == Weight::SemiBold
-                && let Some(family) = fonts
-                    .families
-                    .get_mut(&egui::FontFamily::Name(DISPLAY_FAMILY.into()))
-            {
-                family.insert(0, key);
-            }
-        }
-    }
     text_rendering().apply_to(&mut fonts);
     ctx.set_fonts(fonts);
 }
 
 fastframe_icons::icons! {
     /// Every icon the interface draws. The shared Lucide icons come from
-    /// fastframe-icons; the rest are Spotsie's own files.
+    /// fastframe-icons; the rest are Spotifast's own files.
     pub enum Icon {
-        prefix: "spotsie-icon-",
+        prefix: "spotifast-icon-",
         directory: "../assets/icons/",
         ArrowLeft => lucide "arrow-left",
         ArrowRight => "arrow-right",
@@ -827,13 +465,13 @@ fastframe_icons::icons! {
         CirclePlus => "circle-plus",
         CircleX => lucide "circle-x",
         Clock => lucide "clock",
-        CloudDownload => "cloud-download",
         Compass => "compass",
         Copy => lucide "copy",
-        CoverView => "cover-view",
         Disc => "disc-3",
         Ellipsis => lucide "ellipsis",
         Expand => "expand",
+        Eye => "eye",
+        EyeOff => "eye-off",
         ExternalLink => lucide "external-link",
         Gamepad => "gamepad-2",
         Globe => "globe",
@@ -847,12 +485,10 @@ fastframe_icons::icons! {
         Library => "library",
         LayoutGrid => "layout-grid",
         LayoutList => "layout-list",
-        List => "list",
         ListEnd => "list-end",
         ListMusic => "list-music",
         ListPlus => "list-plus",
         ListVideo => "list-video",
-        Lyrics => "lyrics",
         Loader => "loader-circle",
         Lock => lucide "lock",
         LogOut => lucide "log-out",
@@ -865,7 +501,6 @@ fastframe_icons::icons! {
         PauseFilled => "pause-filled",
         PanelLeft => lucide "panel-left",
         Pin => lucide "pin",
-        PinFilled => "pin-filled",
         PinOff => lucide "pin-off",
         Pencil => lucide "pencil",
         Play => lucide "play",
@@ -900,6 +535,7 @@ fastframe_icons::icons! {
         Volume2 => lucide "volume-2",
         VolumeX => lucide "volume-x",
         Watch => "watch",
+        WifiOff => "wifi-off",
         X => lucide "x",
         Zap => "zap",
     }
@@ -934,6 +570,12 @@ pub fn focus_ring(ui: &egui::Ui, response: &Response) {
     }
 }
 
+/// The padding [`icon_button`] keeps around its glyph on every side. A
+/// caller that places an icon button inside a fixed box must give the box
+/// at least `size + ICON_BUTTON_PAD`: in a tighter one, egui clamps the
+/// centered layout to the box's top edge and the glyph lands off-center.
+pub const ICON_BUTTON_PAD: f32 = 12.0;
+
 /// A frameless icon control whose colour lifts on hover.
 pub fn icon_button(
     ui: &mut egui::Ui,
@@ -943,26 +585,23 @@ pub fn icon_button(
     hover: Color32,
     tooltip: &str,
 ) -> Response {
-    let edge = size + 12.0;
+    let edge = size + ICON_BUTTON_PAD;
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(edge), Sense::click());
     response.widget_info(|| {
         egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), tooltip)
     });
     if ui.is_rect_visible(rect) {
-        let lit = crate::motion::toggle(
-            ui.ctx(),
-            response.id.with("hover"),
-            response.hovered() || response.has_focus(),
-            crate::motion::MICRO,
-        );
-        let pressed = crate::motion::toggle(
-            ui.ctx(),
-            response.id.with("press"),
-            response.is_pointer_button_down_on(),
-            0.08,
-        );
-        let tint = crate::motion::lerp_color(color, hover, lit);
-        paint_icon(ui, icon, rect, size * (1.0 - 0.08 * pressed), tint);
+        let tint = if response.hovered() || response.has_focus() {
+            hover
+        } else {
+            color
+        };
+        let scale = if response.is_pointer_button_down_on() {
+            0.92
+        } else {
+            1.0
+        };
+        paint_icon(ui, icon, rect, size * scale, tint);
     }
     focus_ring(ui, &response);
     if tooltip.is_empty() {
@@ -975,7 +614,7 @@ pub fn icon_button(
 /// Horizontal offset that optically centers play triangles.
 ///
 /// Lucide includes a 1/24-width shift; a measured 3% shift centers the icon at
-/// Spotsie's sizes. Use this everywhere instead of per-call adjustments.
+/// Spotifast's sizes. Use this everywhere instead of per-call adjustments.
 pub fn play_glyph_offset(icon: Icon, icon_size: f32) -> Vec2 {
     if matches!(icon, Icon::PlayFilled | Icon::Play) {
         Vec2::new(icon_size * (0.03 - 1.0 / 24.0), 0.0)
@@ -984,21 +623,14 @@ pub fn play_glyph_offset(icon: Icon, icon_size: f32) -> Vec2 {
     }
 }
 
-/// The app's mark, the same picture as the app icon: the record with its
-/// green label, rasterised once per size by `util::app_icon_rgba` and drawn
-/// wherever the app shows its logo.
+/// The app's mark, the same picture as the app icon: the polished green
+/// disc with the play triangle, rasterised once per size by
+/// `util::app_icon_rgba` and drawn wherever the app shows its logo.
 pub fn logo(ui: &egui::Ui, center: egui::Pos2, diameter: f32) {
-    logo_turned(ui, center, diameter, 0.0);
-}
-
-/// The logo turned by `angle` radians about its centre: the record
-/// spinning, as it does on the website.
-pub fn logo_turned(ui: &egui::Ui, center: egui::Pos2, diameter: f32, angle: f32) {
     let ppp = ui.ctx().pixels_per_point();
-    // The icon leaves a little margin around the record; four pixels
-    // more than the diameter keeps the record itself about that wide.
+    // The raster keeps two pixels of margin on each side of the disc.
     let pixels = (diameter * ppp).round() as usize + 4;
-    let id = egui::Id::new(("spotsie-logo", pixels));
+    let id = egui::Id::new(("spotifast-logo", pixels));
     let texture = ui
         .ctx()
         .data(|data| data.get_temp::<egui::TextureHandle>(id))
@@ -1009,25 +641,19 @@ pub fn logo_turned(ui: &egui::Ui, center: egui::Pos2, diameter: f32, angle: f32)
             );
             let texture =
                 ui.ctx()
-                    .load_texture("spotsie-logo", image, egui::TextureOptions::LINEAR);
+                    .load_texture("spotifast-logo", image, egui::TextureOptions::LINEAR);
             ui.ctx()
                 .data_mut(|data| data.insert_temp(id, texture.clone()));
             texture
         });
     let side = pixels as f32 / ppp;
     let rect = egui::Rect::from_center_size(center, Vec2::splat(side));
-    if angle == 0.0 {
-        ui.painter().image(
-            texture.id(),
-            rect,
-            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-            Color32::WHITE,
-        );
-    } else {
-        egui::Image::new(&texture)
-            .rotate(angle, Vec2::splat(0.5))
-            .paint_at(ui, rect);
-    }
+    ui.painter().image(
+        texture.id(),
+        rect,
+        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        Color32::WHITE,
+    );
 }
 
 pub fn circle_button(
@@ -1174,7 +800,8 @@ fn soft_button_inner(
     dismissible: bool,
 ) -> (Response, bool) {
     let font = medium(13.0);
-    let galley = crate::bidi::layout_line(ui.painter(), label, font, palette.text);
+    let color = if active { palette.window } else { palette.text };
+    let galley = crate::bidi::layout_line(ui.painter(), label, font, color);
     let icon_size = 15.0;
     let icon_width = if icon.is_some() { icon_size + 6.0 } else { 0.0 };
     let padding = Vec2::new(12.0, 7.0);
@@ -1207,35 +834,16 @@ fn soft_button_inner(
     let over_dismiss = dismiss
         .as_ref()
         .is_some_and(|dismiss| dismiss.hovered() || dismiss.has_focus());
-    let hovered = response.hovered() || over_dismiss;
-    // Hover and choice both ease in, as Magpie's controls do.
-    let hover = crate::motion::toggle(
-        ui.ctx(),
-        response.id.with("hover"),
-        hovered || response.has_focus(),
-        crate::motion::MICRO,
-    );
-    let chosen = crate::motion::toggle(
-        ui.ctx(),
-        response.id.with("chosen"),
-        active,
-        crate::motion::STANDARD,
-    );
-    let press = crate::motion::toggle(
-        ui.ctx(),
-        response.id.with("press"),
-        response.is_pointer_button_down_on(),
-        0.08,
-    );
-    let color = crate::motion::lerp_color(palette.text, palette.window, chosen);
     if ui.is_rect_visible(rect) {
-        let fill = crate::motion::lerp_color(
-            crate::motion::lerp_color(palette.surface, palette.surface_hover, hover),
-            palette.text,
-            chosen,
-        );
-        let shape = rect.shrink(press);
-        ui.painter().rect_filled(shape, shape.height() / 2.0, fill);
+        let hovered = response.hovered() || over_dismiss;
+        let fill = if active {
+            palette.text
+        } else if hovered {
+            palette.surface_hover
+        } else {
+            palette.surface
+        };
+        ui.painter().rect_filled(rect, rect.height() / 2.0, fill);
         let mut x = rect.left() + padding.x;
         if let Some(icon) = icon {
             let icon = if dismiss.is_some() && hovered {
@@ -1247,14 +855,76 @@ fn soft_button_inner(
             x += icon_width;
         }
         let pos = egui::pos2(x, rect.center().y - galley.size().y / 2.0);
-        ui.painter()
-            .galley_with_override_text_color(pos, galley, color);
+        ui.painter().galley(pos, galley, color);
     }
     focus_ring(ui, &response);
     if let Some(dismiss) = dismiss {
         focus_ring(ui, &dismiss);
     }
     (response, dismissed)
+}
+
+/// Asks for the next frame `interval` from now.
+///
+/// egui takes one predicted frame off every delayed repaint, and egui-winit
+/// leaves that prediction at 1/60 s whatever the display, so asking egui for
+/// 33 ms brought the frame back after 16 ms. The prediction is added back
+/// here, for animations that mean to run slower than the display.
+pub fn repaint_after(ctx: &egui::Context, interval: std::time::Duration) {
+    let predicted = ctx.input(|input| input.predicted_dt);
+    ctx.request_repaint_after(interval + std::time::Duration::from_secs_f32(predicted));
+}
+
+/// Asks for a moving visualiser's next frame at `rate` frames a second, from
+/// [`crate::power::visualiser_fps`]: 0 is the display's own rate, and `None`
+/// asks for nothing, since nobody can see it.
+pub fn visualiser_frame(ctx: &egui::Context, rate: Option<u32>) {
+    let Some(rate) = rate else {
+        return;
+    };
+    if rate == 0 {
+        // The display paces it, through the vsync swap or, on Wayland, the
+        // compositor's frame callback that eframe waits for.
+        ctx.request_repaint();
+        return;
+    }
+    let interval = 1.0 / f64::from(rate);
+    let id = egui::Id::new("visualiser-frame-due");
+    let now = ctx.input(|input| input.time);
+    let pass = ctx.cumulative_pass_nr();
+    let (mut due, seen) = ctx
+        .data(|data| data.get_temp::<(f64, u64)>(id))
+        .unwrap_or((now, u64::MAX));
+    // Count each pass once, however many visualisers it draws.
+    if seen != pass {
+        due = next_beat(due, now, interval);
+    }
+    ctx.data_mut(|data| data.insert_temp(id, (due, pass)));
+    let wait = due - now;
+    if wait <= 0.0 {
+        ctx.request_repaint();
+    } else {
+        repaint_after(ctx, std::time::Duration::from_secs_f64(wait));
+    }
+}
+
+/// When the frame after one drawn at `now` is due, when this one was `due`.
+///
+/// Frames are due on a fixed beat, each one interval after the last was due
+/// rather than after it was drawn, so a rate the display does not divide
+/// evenly (60 on a 144 Hz screen) still averages out to the rate asked for,
+/// and a rate equal to the display's does not slip to every other refresh.
+/// A frame up to a millisecond early counts as on time; one drawn before
+/// that (something else asked for it) keeps the beat; and after a pause
+/// the beat starts again from now rather than rushing to catch up.
+fn next_beat(due: f64, now: f64, interval: f64) -> f64 {
+    if now + 0.001 < due {
+        due
+    } else if now - due > interval {
+        now + interval
+    } else {
+        due + interval
+    }
 }
 
 /// An animated busy indicator paced independently of the graphics driver.
@@ -1392,17 +1062,20 @@ mod tests {
         output.textures_delta.clear();
     }
 
-    /// Palette files name the sixteen colours every app shares, and only
-    /// those: a typo is an invalid file, not an ignored colour.
+    /// Palette files name the sixteen colours every app shares and
+    /// Spotifast's own `tint`, and only those: a typo is an invalid file,
+    /// not an ignored colour.
     #[test]
     fn palette_files_set_every_base_colour() {
         use fastframe_theme::Palette as _;
-        for name in fastframe_theme::BASE_COLORS {
+        for name in fastframe_theme::BASE_COLORS.iter().chain(&["tint"]) {
             let mut palette = Palette::dark();
             assert!(palette.set(name, Color32::from_rgb(1, 2, 3)), "{name}");
             assert_ne!(palette, Palette::dark(), "{name}");
         }
         assert!(!Palette::dark().set("typo", Color32::RED));
+        assert_eq!(Palette::dark().tint, Color32::TRANSPARENT);
+        assert_eq!(Palette::light().tint, Color32::TRANSPARENT);
         let light: Palette =
             fastframe_theme::parse_palette(r##"{"base":"light","colors":{"accent":"#8c3fa5"}}"##)
                 .unwrap();
@@ -1411,19 +1084,72 @@ mod tests {
         assert_eq!(light.window, Palette::light().window);
     }
 
+    /// Ristretto's brown window must not open blue-grey menus.
+    #[test]
+    fn menus_follow_a_palette_that_leaves_overlay_out() {
+        let shared: Palette = fastframe_theme::presets::themes()
+            .find(|theme: &CustomTheme| theme.filename == "Ristretto.json")
+            .unwrap()
+            .palette;
+        let [r, _, b, _] = shared.overlay.to_array();
+        assert!(r > b, "{:?}", shared.overlay);
+        assert_ne!(shared.overlay, Palette::dark().overlay);
+
+        let latte: Palette = fastframe_theme::parse_palette(
+            r##"{"base":"light","colors":{"window":"#eff1f5","panel":"#edeff3"}}"##,
+        )
+        .unwrap();
+        assert_eq!(latte.overlay, latte.panel);
+
+        let own: Palette = fastframe_theme::parse_palette(
+            r##"{"colors":{"window":"#2c2525","overlay":"#010203"}}"##,
+        )
+        .unwrap();
+        assert_eq!(own.overlay, Color32::from_rgb(1, 2, 3));
+        let accent_only: Palette =
+            fastframe_theme::parse_palette(r##"{"colors":{"accent":"#8c3fa5"}}"##).unwrap();
+        assert_eq!(accent_only.overlay, Palette::dark().overlay);
+    }
+
     /// Compared line by line: a Windows checkout may turn the files' line
     /// endings into CRLF, which no Linux package ships.
     #[test]
     fn the_shipped_omarchy_files_are_the_shared_ones() {
         let lines = |text: &str| text.replace("\r\n", "\n");
         assert_eq!(
-            lines(include_str!("../contrib/omarchy/spotsie-theme")),
-            lines(&fastframe_theme::omarchy::hook_script("spotsie"))
+            lines(include_str!("../contrib/omarchy/spotifast-theme")),
+            lines(&fastframe_theme::omarchy::hook_script("spotifast"))
         );
+        // The first template was the shared one, so an unchanged copy of it
+        // is recognised and upgraded.
         assert_eq!(
-            lines(include_str!("../contrib/omarchy/spotsie.json.tpl")),
+            lines(include_str!("omarchy_template_v1.json.tpl")),
             lines(fastframe_theme::omarchy::BASE_TEMPLATE)
         );
+    }
+
+    /// Spotifast's own template takes Omarchy's semantic shades: the panels
+    /// its darker background, selections its selection, outlines its muted
+    /// colour, menus its lighter background.
+    #[test]
+    fn the_omarchy_template_uses_the_themes_own_shades() {
+        let colors = "accent\t#7fbbb3\nbackground\t#2d353b\ndark_background\t#21272c\n\
+            darker_background\t#181d20\nlighter_background\t#343f44\nforeground\t#d3c6aa\n\
+            muted\t#475258\nselection\t#3d484d\nred\t#e67e80\nyellow\t#dbbc7f\nmode\tdark\n";
+        let text = fastframe_theme::omarchy::render_seed::<Palette>(
+            include_str!("../contrib/omarchy/spotifast.json.tpl"),
+            colors,
+        )
+        .unwrap();
+        let palette: Palette = fastframe_theme::parse_palette(&text).unwrap();
+        assert!(palette.dark);
+        assert_eq!(palette.window, Color32::from_rgb(0x2d, 0x35, 0x3b));
+        assert_eq!(palette.panel, Color32::from_rgb(0x21, 0x27, 0x2c));
+        assert_eq!(palette.surface_active, Color32::from_rgb(0x3d, 0x48, 0x4d));
+        assert_eq!(palette.outline, Color32::from_rgb(0x3a, 0x44, 0x4a));
+        assert_eq!(palette.accent, Color32::from_rgb(0x7f, 0xbb, 0xb3));
+        assert!(palette.tint.a() > 0 && palette.tint.a() < 64);
+        assert!(palette.shadow.a() < 255);
     }
 
     #[test]
@@ -1494,7 +1220,7 @@ mod tests {
     }
 
     #[test]
-    fn a_local_palette_keeps_spotsies_widget_style_local() {
+    fn a_local_palette_keeps_spotifasts_widget_style_local() {
         let ctx = egui::Context::default();
         apply(&ctx, &Palette::light());
         let dark = Palette::dark();
@@ -1531,57 +1257,6 @@ mod tests {
         output.textures_delta.clear();
     }
 
-    /// hyprahaan's pywal palette, as `wal` writes it: its background and
-    /// text, and slot 9 as the accent.
-    #[test]
-    fn a_pywal_palette_dresses_the_app_in_the_desktops_colours() {
-        let json = r##"{
-            "wallpaper": "None", "alpha": "100",
-            "special": {"background": "#1f1f28", "foreground": "#dcd7ba", "cursor": "#dcd7ba"},
-            "colors": {"color0": "#1f1f28", "color1": "#c34043", "color3": "#c0a36e",
-                       "color4": "#7e9cd8", "color9": "#dcd7ba"}
-        }"##;
-        let palette = palette_from_pywal(json).expect("a pywal palette");
-        assert!(palette.dark);
-        assert_eq!(palette.window, Color32::from_rgb(0x1f, 0x1f, 0x28));
-        assert_eq!(palette.text, Color32::from_rgb(0xdc, 0xd7, 0xba));
-        assert_eq!(palette.accent, Color32::from_rgb(0xdc, 0xd7, 0xba));
-        assert_eq!(palette.danger, Color32::from_rgb(0xc3, 0x40, 0x43));
-        assert!(palette_from_pywal("{}").is_none());
-        assert!(palette_from_pywal("not json").is_none());
-    }
-
-    /// Three light themes and six dark ones beside Spotsie's pair, each
-    /// found by its name, and older builds' names still found.
-    #[test]
-    fn the_built_in_themes_are_the_chosen_set() {
-        let themes = builtin_themes();
-        assert_eq!(themes.len(), 9);
-        assert_eq!(themes.iter().filter(|theme| theme.palette.dark).count(), 6);
-        assert_eq!(builtin_theme("Mocha").unwrap().name, "Catppuccin");
-        for theme in themes {
-            assert_eq!(builtin_theme(theme.name).unwrap().name, theme.name);
-        }
-        assert!(builtin_theme("Magpie Dark").is_none());
-    }
-
-    /// Every bundled font installs, draws text, and is offered in its own
-    /// face; an unknown name falls back to Inter.
-    #[test]
-    fn every_font_installs_and_has_a_preview() {
-        let ctx = egui::Context::default();
-        install(&ctx);
-        for font in FONTS {
-            set_font(&ctx, font.name);
-            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
-                ui.label(egui::RichText::new("Spotsie").font(bold(28.0)));
-                ui.label(egui::RichText::new(font.name).family(preview_family(font.name)));
-            });
-            output.textures_delta.clear();
-        }
-        assert_eq!(font_by_name("Comic Sans").name, DEFAULT_FONT);
-    }
-
     /// The monochrome emoji face comes right after Inter at every weight
     /// and in the monospace family, ahead of egui's own emoji pair.
     #[test]
@@ -1592,16 +1267,10 @@ mod tests {
             .textures_delta
             .clear();
         let fonts = ctx.fonts(|fonts| fonts.definitions().clone());
-        use fastframe_fonts::Weight;
-        for weight in [Weight::Regular, Weight::Medium, Weight::SemiBold] {
+        for weight in fastframe_fonts::Weight::ALL {
             let family = &fonts.families[&weight.family()];
             assert_eq!(family[..2], [weight.name(), "noto_emoji"], "{weight:?}");
         }
-        assert_eq!(
-            fonts.families[&bold(28.0).family][..2],
-            [DISPLAY_FAMILY, "noto_emoji"]
-        );
-        assert_eq!(bold(14.0), semibold(14.0), "no 700 weight, as in Magpie");
         assert_eq!(
             fonts.families[&egui::FontFamily::Monospace][1],
             "noto_emoji"
@@ -1622,5 +1291,81 @@ mod tests {
             assert!(galley.rows[0].glyphs.len() >= 10);
         });
         output.textures_delta.clear();
+    }
+
+    /// An animation asking for its next frame in 33 ms gets it in 33 ms, not
+    /// in the 16 ms left after egui's predicted frame.
+    #[test]
+    fn a_timed_repaint_waits_the_whole_interval() {
+        let ctx = egui::Context::default();
+        let delays = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = std::sync::Arc::clone(&delays);
+        ctx.set_request_repaint_callback(move |info| seen.lock().unwrap().push(info.delay));
+        repaint_after(&ctx, std::time::Duration::from_millis(33));
+        let delays = delays.lock().unwrap();
+        assert_eq!(delays.len(), 1);
+        let ms = delays[0].as_secs_f64() * 1_000.0;
+        assert!((ms - 33.0).abs() < 0.5, "{ms} ms");
+    }
+
+    /// A visualiser nobody can see asks for no frames at all.
+    #[test]
+    fn an_unseen_visualiser_asks_for_no_frame() {
+        let ctx = egui::Context::default();
+        let asked = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let seen = std::sync::Arc::clone(&asked);
+        ctx.set_request_repaint_callback(move |_| {
+            seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        });
+        visualiser_frame(&ctx, None);
+        assert_eq!(asked.load(std::sync::atomic::Ordering::Relaxed), 0);
+        visualiser_frame(&ctx, Some(30));
+        assert_eq!(asked.load(std::sync::atomic::Ordering::Relaxed), 1);
+    }
+
+    /// Frames drawn in one second of a display refreshing `hz` times, when
+    /// the visualiser asks for `rate`: each frame lands on the first refresh
+    /// at or after it is due.
+    fn frames_in_a_second(hz: u32, rate: u32) -> u32 {
+        let refresh = 1.0 / f64::from(hz);
+        let interval = 1.0 / f64::from(rate);
+        let mut due = 0.0;
+        let mut drawn = 0;
+        for tick in 0..hz {
+            let now = f64::from(tick) * refresh;
+            if now + 0.001 >= due {
+                drawn += 1;
+                due = next_beat(due, now, interval);
+            }
+        }
+        drawn
+    }
+
+    /// The beat holds the rate asked for whether or not the display divides
+    /// it, and a rate equal to the display's draws every refresh.
+    #[test]
+    fn the_visualiser_keeps_its_beat_on_any_display() {
+        assert_eq!(frames_in_a_second(144, 144), 144, "no slipped refreshes");
+        assert_eq!(frames_in_a_second(60, 60), 60);
+        assert_eq!(frames_in_a_second(144, 72), 72);
+        let sixty = frames_in_a_second(144, 60);
+        assert!((59..=61).contains(&sixty), "60 on 144 Hz drew {sixty}");
+        let thirty = frames_in_a_second(165, 30);
+        assert!((29..=31).contains(&thirty), "30 on 165 Hz drew {thirty}");
+        assert_eq!(frames_in_a_second(60, 144), 60, "never above the display");
+    }
+
+    /// A frame something else asked for keeps the beat, and a pause starts
+    /// it again from now instead of rushing frames to catch up.
+    #[test]
+    fn the_visualiser_beat_ignores_extra_frames_and_restarts_after_a_pause() {
+        let interval = 1.0 / 60.0;
+        assert_eq!(next_beat(1.0, 0.99, interval), 1.0, "early frame");
+        assert_eq!(next_beat(1.0, 1.0, interval), 1.0 + interval);
+        assert_eq!(
+            next_beat(1.0, 5.0, interval),
+            5.0 + interval,
+            "after a pause"
+        );
     }
 }

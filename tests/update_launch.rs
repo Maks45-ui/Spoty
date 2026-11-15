@@ -13,7 +13,7 @@ fn update_flags_are_intercepted_before_the_arguments_are_parsed() {
     for flags in [
         [
             "--update-receipt",
-            "/missing/.spotsie-update-0000000000000000/handoff.json",
+            "/missing/.spotifast-update-0000000000000000/handoff.json",
         ],
         [
             "--update-error",
@@ -40,7 +40,7 @@ fn update_flags_are_intercepted_before_the_arguments_are_parsed() {
 #[test]
 fn apply_update_runs_the_helper_before_the_app() {
     let scratch = std::env::temp_dir().join(format!(
-        "spotsie-apply-update-{:016x}",
+        "spotifast-apply-update-{:016x}",
         rand::random::<u64>()
     ));
     std::fs::create_dir(&scratch).unwrap();

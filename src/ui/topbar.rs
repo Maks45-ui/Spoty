@@ -7,12 +7,12 @@ use egui::{Align, CornerRadius, Galley, Layout, Sense, Vec2, pos2, vec2};
 use crate::api::models::pick_image;
 use crate::app::App;
 use crate::i18n::gettext;
-use crate::model::{Action, Page};
+use crate::model::{Action, BackgroundActivity, Page};
 use crate::theme::{self, Icon, Palette};
 
 /// The gap the bar keeps between everything it lays out.
 const ITEM_SPACING: f32 = 8.0;
-/// The account avatar, and the icon in the Settings button beside it.
+/// The account avatar, and the icon in each of the three buttons beside it.
 const AVATAR_SIZE: f32 = 36.0;
 const ICON_BUTTON_ICON: f32 = 19.0;
 /// `theme::icon_button` pads its icon by 12 px.
@@ -34,12 +34,12 @@ const SEARCH_FLOOR: f32 = 130.0;
 // Keep the original 80-point minimum inside the page's own toolbar.
 const SEARCH_MIN: f32 = 80.0;
 /// Everything at the right end whose width never changes: the page padding,
-/// the avatar, the gap the account menu leaves, the Settings button, and the
-/// spacing before it. The cursor stops at the button's left edge, so this
-/// counts one gap. The spinner and the badges are measured on top of it
-/// because they come and go.
+/// the avatar, the gap the account menu leaves, the three icon buttons, and
+/// the spacing between them. The cursor stops at the left edge of the last
+/// button, so this counts three gaps, not four. The spinner and the badges
+/// are measured on top of it because they come and go.
 const RIGHT_CONTROLS_WIDTH: f32 =
-    super::widgets::PAGE_PADDING + AVATAR_SIZE + 4.0 + ICON_BUTTON_SIZE + ITEM_SPACING;
+    super::widgets::PAGE_PADDING + AVATAR_SIZE + 4.0 + 3.0 * ICON_BUTTON_SIZE + 3.0 * ITEM_SPACING;
 
 /// What precedes the field until the bar has drawn once: the page padding,
 /// the back and forward buttons and the gaps after them.
@@ -154,140 +154,6 @@ fn badge(
     response
 }
 
-/// What the update badge says: that there is one, how far it has come, or
-/// that a restart finishes it.
-fn update_label(locale: crate::i18n::Locale, download: &crate::updates::DownloadState) -> String {
-    match download {
-        crate::updates::DownloadState::Ready(_) => gettext(locale, "Restart Spotsie").into_owned(),
-        crate::updates::DownloadState::Installing => gettext(locale, "Restarting…").into_owned(),
-        crate::updates::DownloadState::Downloading { received, total } => {
-            let percent = if *total > 0 {
-                (*received as f64 / *total as f64 * 100.0).round() as u32
-            } else {
-                0
-            };
-            gettext(locale, "Updating… {percent}%").replace("{percent}", &percent.to_string())
-        }
-        crate::updates::DownloadState::Idle | crate::updates::DownloadState::Failed(_) => {
-            gettext(locale, "Update available").into_owned()
-        }
-    }
-}
-
-/// The update badge, after Magpie's: a quiet row in the bar's own colours,
-/// an icon with one small accent dot, a hover wash, and while it downloads a
-/// thin line filling underneath. It fades in when it first appears.
-fn update_badge(
-    ui: &mut egui::Ui,
-    palette: &Palette,
-    galley: Arc<Galley>,
-    download: &crate::updates::DownloadState,
-    labels: bool,
-) -> egui::Response {
-    use crate::updates::DownloadState;
-    let height = galley.size().y + BADGE_PADDING_Y;
-    let size = if labels {
-        vec2(galley.size().x + UPDATE_BADGE_PADDING, height)
-    } else {
-        Vec2::splat(height)
-    };
-    let busy = matches!(
-        download,
-        DownloadState::Downloading { .. } | DownloadState::Installing
-    );
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    response.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), galley.text())
-    });
-    let ctx = ui.ctx().clone();
-    let shown = crate::motion::tween_from(
-        &ctx,
-        egui::Id::new("update-badge-shown"),
-        0.0,
-        1.0,
-        crate::motion::EMPHASIS,
-    );
-    let hover = crate::motion::toggle(
-        &ctx,
-        egui::Id::new("update-badge-hover"),
-        response.hovered() && !busy,
-        crate::motion::MICRO,
-    );
-    let painter = ui.painter();
-    if hover > 0.0 {
-        painter.rect_filled(
-            rect,
-            CornerRadius::same(14),
-            crate::motion::with_alpha(palette.surface_hover, hover),
-        );
-    }
-    let ink = crate::motion::with_alpha(
-        crate::motion::lerp_color(palette.secondary, palette.text, hover),
-        shown,
-    );
-    let icon_center = if labels {
-        pos2(rect.left() + 14.0, rect.center().y)
-    } else {
-        rect.center()
-    };
-    let icon = match download {
-        DownloadState::Ready(_) | DownloadState::Installing => Icon::Refresh,
-        _ => Icon::CloudDownload,
-    };
-    icon.image(ink, 13.0).paint_at(
-        ui,
-        egui::Rect::from_center_size(icon_center, Vec2::splat(13.0)),
-    );
-    // The one bit of colour.
-    painter.circle_filled(
-        icon_center + vec2(6.0, -5.0),
-        2.5,
-        crate::motion::with_alpha(palette.accent, shown),
-    );
-    if labels {
-        painter.galley(
-            pos2(rect.left() + 24.0, rect.center().y - galley.size().y / 2.0),
-            galley.clone(),
-            ink,
-        );
-        if let DownloadState::Downloading { received, total } = download {
-            let progress = if *total > 0 {
-                (*received as f32 / *total as f32).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let progress = crate::motion::tween(
-                &ctx,
-                egui::Id::new("update-badge-progress"),
-                progress,
-                crate::motion::GLIDE,
-            );
-            let track = egui::Rect::from_min_size(
-                pos2(rect.left() + 24.0, rect.bottom() - 3.0),
-                vec2(galley.size().x, 2.0),
-            );
-            painter.rect_filled(track, CornerRadius::same(1), palette.outline);
-            let done = egui::Rect::from_min_size(track.min, vec2(track.width() * progress, 2.0));
-            painter.rect_filled(done, CornerRadius::same(1), palette.accent);
-        }
-    }
-    if busy {
-        response
-    } else {
-        response.on_hover_cursor(egui::CursorIcon::PointingHand)
-    }
-}
-
-/// The button that shows or hides the sidebar: here while it is hidden, at
-/// the top of the sidebar while it is open.
-pub(super) fn sidebar_button(
-    ui: &mut egui::Ui,
-    palette: &Palette,
-    tooltip: &str,
-) -> egui::Response {
-    nav_button(ui, palette, Icon::PanelLeft, true, tooltip)
-}
-
 fn nav_button(
     ui: &mut egui::Ui,
     palette: &Palette,
@@ -303,6 +169,7 @@ fn nav_button(
             Sense::hover()
         },
     );
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, tooltip));
     if ui.is_rect_visible(rect) {
         let fill = if palette.dark {
             egui::Color32::from_black_alpha(90)
@@ -310,20 +177,15 @@ fn nav_button(
             egui::Color32::from_black_alpha(20)
         };
         ui.painter().circle_filled(rect.center(), 16.0, fill);
-        let color = if enabled {
-            let lit = crate::motion::toggle(
-                ui.ctx(),
-                response.id.with("lit"),
-                response.hovered() || response.has_focus(),
-                crate::motion::MICRO,
-            );
-            crate::motion::lerp_color(palette.secondary, palette.text, lit)
-        } else {
+        let color = if !enabled {
             palette.dim
+        } else if response.hovered() || response.has_focus() {
+            palette.text
+        } else {
+            palette.secondary
         };
         theme::paint_icon(ui, icon, rect, 20.0, color);
     }
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, tooltip));
     theme::focus_ring(ui, &response);
     if enabled {
         response.on_hover_text(tooltip)
@@ -336,14 +198,23 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let locale = app.locale;
     let width = ui.available_width();
-    let window_controls =
-        super::window_controls_reservation(ui.ctx(), app.show_queue_panel, false, width);
+    let mut window_controls = super::window_controls_reservation(
+        ui.ctx(),
+        app.show_queue_panel || app.show_friends_panel,
+        app.show_lyrics_panel,
+        width,
+    );
+    if !app.settings.sidebar_visible {
+        window_controls.topbar_top = window_controls
+            .topbar_top
+            .max(super::linux_left_controls_inset(ui.ctx()));
+    }
     // Where the titlebar used to be: the bar grows upwards into that space and
     // its empty parts drag the window.
     let inset = theme::titlebar_inset(ui.ctx());
-    let content_height = theme::TOP_BAR_HEIGHT + inset;
-    if crate::window::custom_titlebar() {
-        super::titlebar_drag(
+    let content_height = theme::top_bar_height() + inset;
+    if fastframe_titlebar::enabled() {
+        fastframe_titlebar::drag(
             ui,
             egui::Rect::from_min_size(
                 ui.cursor().min,
@@ -351,17 +222,26 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             ),
         );
     }
-    ui.add_space(window_controls.topbar_top);
+    // Balance the visible Windows header, including the gap below the
+    // control row.
+    let top_padding = if cfg!(windows) && fastframe_titlebar::enabled() {
+        4.0
+    } else {
+        0.0
+    };
+    ui.add_space(window_controls.topbar_top + top_padding);
     ui.allocate_ui_with_layout(
-        vec2(width, content_height),
+        vec2(width, content_height - top_padding),
         Layout::left_to_right(Align::Center),
         |ui| {
             ui.add_space(super::widgets::PAGE_PADDING);
             ui.spacing_mut().item_spacing.x = ITEM_SPACING;
             if !app.settings.sidebar_visible {
-                if sidebar_button(
+                if nav_button(
                     ui,
                     &palette,
+                    Icon::PanelLeft,
+                    true,
                     super::keys::platform_shortcut(
                         &gettext(locale, "Show sidebar (Ctrl+B)"),
                         &gettext(locale, "Show sidebar (Cmd+B)"),
@@ -404,9 +284,17 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
 
             // The badges sit at the right end but grow with their text, so
             // measure them here, before the search field takes its share.
-            let device_galley = app.now_playing().filter(|now| !now.local).map(|now| {
+            let remote_now = app
+                .now_playing()
+                .filter(|now| !now.local && !app.targets_own_soloist());
+            let device_icon = remote_now
+                .as_ref()
+                .and_then(|now| now.device_kind.as_deref())
+                .map_or(Icon::Speaker, crate::ui::devices::device_icon);
+            let device_galley = remote_now.map(|now| {
                 let label = match now.device_name {
                     Some(device) => {
+                        // Translators: {device} is the name of the device playing the music.
                         gettext(locale, "Playing on {device}").replace("{device}", &device)
                     }
                     None => gettext(locale, "Playing on another device").into_owned(),
@@ -415,22 +303,41 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     .layout_no_wrap(label, theme::medium(12.5), palette.accent)
             });
             let update = app.update.clone();
-            let update_galley = update.as_ref().map(|_| {
-                let label = update_label(locale, &app.update_download);
+            let update_galley = update.as_ref().map(|update| {
+                let label = match &app.update_download {
+                    crate::updates::DownloadState::Ready(_) => {
+                        gettext(locale, "Update ready").into_owned()
+                    }
+                    crate::updates::DownloadState::Downloading { .. } => {
+                        gettext(locale, "Downloading update…").into_owned()
+                    }
+                    _ => {
+                        // Translators: {version} is a version number such as 1.2.0.
+                        gettext(locale, "Update to {version}").replace("{version}", &update.version)
+                    }
+                };
                 ui.painter()
-                    .layout_no_wrap(label, theme::medium(12.5), palette.secondary)
+                    .layout_no_wrap(label, theme::medium(12.5), palette.accent)
             });
             // Ask once, so the bar reserves room for exactly the spinner it
             // then draws.
-            let busy = app
-                .backend
-                .activity()
-                .busy(std::time::Duration::from_millis(1000));
+            let activity = app.background_activity();
+            let busy = activity.is_some();
             let badges = |labels: bool| {
                 badge_width(device_galley.as_ref(), DEVICE_BADGE_PADDING, labels)
                     + badge_width(update_galley.as_ref(), UPDATE_BADGE_PADDING, labels)
             };
             let controls = RIGHT_CONTROLS_WIDTH
+                - if !app.visualizers_available() {
+                    ICON_BUTTON_SIZE + ITEM_SPACING
+                } else {
+                    0.0
+                }
+                + if !app.network_reachable {
+                    ICON_BUTTON_SIZE + 4.0
+                } else {
+                    0.0
+                }
                 + if busy {
                     SPINNER_SIZE + ITEM_SPACING
                 } else {
@@ -447,13 +354,16 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             let search_width = fit.search;
             let id = egui::Id::new("global-search");
             let before = app.search.query.clone();
+            let selected = egui::TextEdit::load_state(ui.ctx(), id)
+                .and_then(|state| state.cursor.char_range())
+                .is_some_and(|range| !range.is_empty());
             let response = super::widgets::search_field(
                 ui,
                 &palette,
                 app.locale,
                 id,
                 &mut app.search.query,
-                &gettext(locale, "Search"),
+                &gettext(locale, "What do you want to play?"),
                 search_width,
             );
             if app.search.focus_requested {
@@ -467,6 +377,11 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                 app.actions.push(Action::Open(Page::Search));
             }
             if app.search.query != before {
+                // Typing over a selection, or emptying the field, starts a
+                // new query rather than editing the last one.
+                if selected || app.search.query.is_empty() {
+                    app.actions.push(Action::EndSearchRun);
+                }
                 app.search.typed_at = Some(std::time::Instant::now());
                 if !cleared && !matches!(app.page(), Page::Search) {
                     app.actions.push(Action::Open(Page::Search));
@@ -490,14 +405,26 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     .map(|user| {
                         (
                             user.name().to_string(),
-                            pick_image(&user.images, 64).map(str::to_string),
+                            pick_image(&user.images, app.art_px(28.0)).map(str::to_string),
                         )
                     })
                     .unwrap_or_default();
                 let (rect, response) =
                     ui.allocate_exact_size(Vec2::splat(AVATAR_SIZE), Sense::click());
+                let account_label = if name.is_empty() {
+                    gettext(locale, "Account")
+                } else {
+                    name.as_str().into()
+                };
+                response.widget_info(|| {
+                    egui::WidgetInfo::labeled(
+                        egui::WidgetType::Button,
+                        ui.is_enabled(),
+                        &account_label,
+                    )
+                });
                 if ui.is_rect_visible(rect) {
-                    let fill = if response.hovered() {
+                    let fill = if response.hovered() || response.has_focus() {
                         palette.surface_hover
                     } else {
                         palette.surface
@@ -533,6 +460,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                         }
                     }
                 }
+                theme::focus_ring(ui, &response);
                 let response = response.on_hover_text(&name);
                 egui::Popup::menu(&response)
                     .frame(super::widgets::menu_frame(&palette))
@@ -540,23 +468,26 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     .show(|ui| {
                         ui.set_width(200.0);
                         ui.add_space(4.0);
+                        // The plan sits right under the name, as one block:
+                        // a row of its own each would put a control's height
+                        // between them (#1038).
                         ui.horizontal(|ui| {
                             ui.add_space(10.0);
-                            theme::text(ui, &name, theme::semibold(14.0), palette.text);
-                        });
-                        if let Some(product) =
-                            app.user.as_ref().and_then(|user| user.product.clone())
-                        {
-                            ui.horizontal(|ui| {
-                                ui.add_space(10.0);
-                                theme::text(
-                                    ui,
-                                    capitalize(&product),
-                                    theme::regular(12.0),
-                                    palette.secondary,
-                                );
+                            ui.vertical(|ui| {
+                                ui.spacing_mut().item_spacing.y = 2.0;
+                                theme::text(ui, &name, theme::semibold(14.0), palette.text);
+                                if let Some(product) =
+                                    app.user.as_ref().and_then(|user| user.product.clone())
+                                {
+                                    theme::text(
+                                        ui,
+                                        capitalize(&product),
+                                        theme::regular(12.0),
+                                        palette.secondary,
+                                    );
+                                }
                             });
-                        }
+                        });
                         super::widgets::menu_separator(ui, &palette);
                         if super::widgets::menu_item(
                             ui,
@@ -585,6 +516,36 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                             app.actions.push(Action::SignOut);
                         }
                     });
+                if !app.network_reachable {
+                    ui.add_space(4.0);
+                    let (rect, response) =
+                        ui.allocate_exact_size(Vec2::splat(ICON_BUTTON_SIZE), Sense::hover());
+                    if ui.is_rect_visible(rect) {
+                        let fill = if response.hovered() {
+                            if palette.dark {
+                                egui::Color32::from_rgb(38, 110, 205)
+                            } else {
+                                egui::Color32::from_rgb(66, 133, 244)
+                            }
+                        } else if palette.dark {
+                            egui::Color32::from_rgb(28, 92, 178)
+                        } else {
+                            egui::Color32::from_rgb(41, 121, 255)
+                        };
+                        ui.painter().circle_filled(rect.center(), 14.5, fill);
+                        theme::paint_icon(
+                            ui,
+                            Icon::WifiOff,
+                            rect,
+                            ICON_BUTTON_ICON,
+                            egui::Color32::WHITE,
+                        );
+                    }
+                    response.on_hover_text(gettext(
+                        locale,
+                        "Spotifast is offline. Reconnecting automatically when connection returns.",
+                    ));
+                }
                 ui.add_space(4.0);
                 if theme::icon_button(
                     ui,
@@ -598,42 +559,52 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                 {
                     app.actions.push(Action::Open(Page::Settings));
                 }
-                // A newer release, found on launch. It only says so,
-                // quietly; nothing downloads until it is clicked, and
-                // nothing restarts until it is clicked again.
-                if let (Some(galley), Some(update)) = (update_galley, update) {
-                    let response =
-                        update_badge(ui, &palette, galley, &app.update_download, fit.labels);
-                    let tip = match &app.update_download {
-                        crate::updates::DownloadState::Ready(_) => {
-                            gettext(locale, "Spotsie {version} is installed. Click to restart.")
-                        }
-                        crate::updates::DownloadState::Downloading { .. }
-                        | crate::updates::DownloadState::Installing => {
-                            gettext(locale, "Installing Spotsie {version}")
-                        }
-                        _ => gettext(locale, "Spotsie {version} is out. Click to update."),
-                    }
-                    .replace("{version}", &update.version);
-                    if response.on_hover_text(tip).clicked() {
-                        match &app.update_download {
-                            crate::updates::DownloadState::Ready(_) => {
-                                app.actions.push(Action::InstallUpdate)
-                            }
-                            crate::updates::DownloadState::Idle
-                            | crate::updates::DownloadState::Failed(_) => {
-                                app.actions.push(Action::StartUpdate)
-                            }
-                            crate::updates::DownloadState::Downloading { .. }
-                            | crate::updates::DownloadState::Installing => {}
-                        }
-                    }
+                if app.visualizers_available()
+                    && theme::icon_button(
+                        ui,
+                        Icon::AudioLines,
+                        ICON_BUTTON_ICON,
+                        if app.settings.milkdrop_open {
+                            palette.accent
+                        } else {
+                            palette.secondary
+                        },
+                        palette.text,
+                        super::keys::platform_shortcut(
+                            &gettext(locale, "MilkDrop visualiser (Ctrl+Shift+K)"),
+                            &gettext(locale, "MilkDrop visualiser (Cmd+Shift+K)"),
+                        ),
+                    )
+                    .clicked()
+                {
+                    app.actions.push(Action::ToggleWinampMilkdrop);
                 }
-                // A quiet spinner once the app has been talking to Spotify for a
-                // while, long enough that fast requests never flash it.
-                if busy {
+                if theme::icon_button(
+                    ui,
+                    Icon::Shrink,
+                    ICON_BUTTON_ICON,
+                    palette.secondary,
+                    palette.text,
+                    super::keys::platform_shortcut(
+                        &gettext(locale, "Mini player (Ctrl+M)"),
+                        &gettext(locale, "Mini player (Cmd+Shift+M)"),
+                    ),
+                )
+                .clicked()
+                {
+                    app.actions.push(Action::ToggleWinampWindow);
+                }
+                // A quiet spinner once the app has been at something in the
+                // background for a while, long enough that fast requests
+                // never flash it.
+                if let Some(activity) = activity {
+                    let hint = match activity {
+                        BackgroundActivity::Library => gettext(locale, "Updating your library…"),
+                        BackgroundActivity::Updates => gettext(locale, "Checking for updates…"),
+                        BackgroundActivity::Spotify => gettext(locale, "Waiting for Spotify…"),
+                    };
                     theme::spinner(ui, SPINNER_SIZE, palette.secondary)
-                        .on_hover_text(gettext(locale, "Waiting for Spotify…").as_ref());
+                        .on_hover_text(hint.as_ref());
                 }
                 // Where playback is.
                 if let Some(galley) = device_galley {
@@ -641,7 +612,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     let response = badge(
                         ui,
                         &palette,
-                        Icon::Speaker,
+                        device_icon,
                         galley,
                         DEVICE_BADGE_PADDING,
                         fit.labels,
@@ -656,6 +627,26 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     if response.clicked() {
                         app.actions.push(Action::ToggleDevicesPopup);
                     }
+                }
+                // A newer release. Most people never visit a releases page,
+                // so the app says so, quietly, until they do.
+                if let (Some(galley), Some(update)) = (update_galley, update)
+                    && badge(
+                        ui,
+                        &palette,
+                        Icon::Info,
+                        galley,
+                        UPDATE_BADGE_PADDING,
+                        fit.labels,
+                    )
+                    .on_hover_text(
+                        // Translators: {version} is a version number such as 1.2.0.
+                        gettext(locale, "Version {version} is available.")
+                            .replace("{version}", &update.version),
+                    )
+                    .clicked()
+                {
+                    app.actions.push(Action::ShowUpdate);
                 }
             });
         },

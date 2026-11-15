@@ -8,7 +8,7 @@ struct Scratch(PathBuf);
 impl Scratch {
     fn new() -> Self {
         let path =
-            std::env::temp_dir().join(format!("spotsie-branding-{:016x}", rand::random::<u64>()));
+            std::env::temp_dir().join(format!("spotifast-branding-{:016x}", rand::random::<u64>()));
         std::fs::create_dir(&path).unwrap();
         Self(path)
     }
@@ -35,18 +35,22 @@ fn the_command_reports_its_name_and_passes_the_update_version_check() {
             .unwrap()
             .contains("Usage: spoty")
     );
-    assert_eq!(spotsie::updates::CONFIG.slug, "spoty");
+    assert_eq!(spotifast::updates::CONFIG.slug, "spoty");
 }
 
-/// The app's earlier names are gone from the code, assets and packaging.
-/// Spelled in halves so this file does not match itself. The second name
-/// remains only in Markdown and the website (`site/`), which credit the
-/// project Spotsie started from.
+/// The app's name before the rename is gone from everything but the past
+/// release notes and the two old guide addresses that still redirect.
+/// Spelled in two halves so this file does not match itself.
 #[test]
-fn no_file_carries_an_old_name() {
-    let first = ["fast", "potify"].concat();
-    let second = ["spoti", "fast"].concat();
+fn no_file_carries_the_old_name() {
+    let old = ["fast", "potify"].concat();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let allowed = [
+        root.join("packaging/release-notes"),
+        // Old guide URLs still redirect, so links from elsewhere keep working.
+        root.join("docs/_guide/using-spotifast.md"),
+        root.join("docs/_guide/what-is-spotifast.md"),
+    ];
     let skipped = [
         "target",
         "_site",
@@ -64,7 +68,7 @@ fn no_file_carries_an_old_name() {
         for entry in std::fs::read_dir(&dir).unwrap() {
             let path = entry.unwrap().path();
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
-            if skipped.contains(&name.as_str()) {
+            if allowed.contains(&path) || skipped.contains(&name.as_str()) {
                 continue;
             }
             if path.is_dir() {
@@ -77,36 +81,29 @@ fn no_file_carries_an_old_name() {
                 .to_string_lossy()
                 .into_owned();
             let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).to_lowercase();
-            let lower = relative.to_lowercase();
-            let credits =
-                lower.ends_with(".md") || path.strip_prefix(root).unwrap().starts_with("site");
-            if [&first, &second].into_iter().any(|old| {
-                lower.contains(old.as_str())
-                    || (text.contains(old.as_str())
-                        && !(credits && old.as_str() == second.as_str()))
-            }) {
+            if relative.to_lowercase().contains(&old) || text.contains(&old) {
                 found.push(relative);
             }
         }
     }
     found.sort();
-    assert!(found.is_empty(), "an old name is still in {found:?}");
+    assert!(found.is_empty(), "the old name is still in {found:?}");
 }
 
 #[test]
 fn existing_preferences_and_custom_connect_names_survive_a_save() {
-    use spotsie::settings::{Settings, ThemeChoice};
+    use spotifast::settings::{Settings, ThemeChoice};
 
     let scratch = Scratch::new();
     let path = scratch.0.join("settings.json");
-    for name in ["Spotsie", "Living room", "Carmine's laptop"] {
+    for name in ["Spotifast", "Living room", "Carmine's laptop"] {
         let saved = Settings {
             device_name: name.into(),
             theme: ThemeChoice::Light,
             volume: 37,
             pinned_contexts: vec![
                 "spotify:playlist:123".into(),
-                spotsie::settings::LIKED_SONGS_KEY.into(),
+                spotifast::settings::LIKED_SONGS_KEY.into(),
             ],
             ..Settings::default()
         };
@@ -119,9 +116,9 @@ fn existing_preferences_and_custom_connect_names_survive_a_save() {
 #[cfg(target_os = "linux")]
 #[test]
 fn the_command_forwards_links_to_the_existing_instance_on_a_private_bus() {
-    use spotsie::single_instance::{ControlCommand, Outcome};
+    use spotifast::single_instance::{ControlCommand, Outcome};
 
-    const CHILD: &str = "SPOTSIE_BRANDING_PRIVATE_BUS";
+    const CHILD: &str = "SPOTIFAST_BRANDING_PRIVATE_BUS";
     if std::env::var_os(CHILD).is_none() {
         // A clean build (including Nix) need not have /etc/dbus-1/session.conf.
         // Own the bus configuration too, without loading desktop services.
@@ -153,7 +150,7 @@ fn the_command_forwards_links_to_the_existing_instance_on_a_private_bus() {
             ])
             .env(CHILD, "1")
             // The running copy's slot lives in the runtime directory, so a
-            // Spotsie already running on this machine is left alone.
+            // Spotifast already running on this machine is left alone.
             .env("XDG_RUNTIME_DIR", &scratch.0)
             .output()
             .expect("the Linux test environment needs dbus-run-session");
@@ -176,7 +173,9 @@ fn the_command_forwards_links_to_the_existing_instance_on_a_private_bus() {
         "{}",
         String::from_utf8_lossy(&result.stderr)
     );
-    let Outcome::Only(guard) = spotsie::single_instance::acquire(&Default::default(), None) else {
+    let Outcome::Only(guard) =
+        spotifast::single_instance::acquire(&Default::default(), None, false)
+    else {
         panic!("the private bus must start without another instance");
     };
     let commands = guard.commands();

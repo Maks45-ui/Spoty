@@ -69,6 +69,17 @@ pub fn build_client(proxy: &ProxyConfig) -> Result<reqwest::Client, String> {
         .map_err(|error| error.without_url().to_string())
 }
 
+/// Collection mutations must not be replayed after an uncertain response.
+/// Keep the configured proxy and user agent, but disable retries and redirects.
+pub(crate) fn build_collection_client(proxy: &ProxyConfig) -> Result<reqwest::Client, String> {
+    client_builder(proxy)?
+        .retry(reqwest::retry::never())
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(20))
+        .build()
+        .map_err(|error| error.without_url().to_string())
+}
+
 pub fn build_blocking(
     proxy: &ProxyConfig,
     timeout: Duration,
@@ -125,7 +136,7 @@ fn apply_blocking_proxy(
 }
 
 fn user_agent() -> &'static str {
-    concat!("Spotsie/", env!("CARGO_PKG_VERSION"))
+    concat!("Spotifast/", env!("CARGO_PKG_VERSION"))
 }
 
 #[cfg(test)]
@@ -136,6 +147,7 @@ mod tests {
     fn invalid_proxy_configuration_never_falls_back_to_a_direct_client() {
         let invalid = ProxyConfig::Invalid("Proxy port must be a number".into());
         assert!(Http::from_proxy(&invalid).is_err());
+        assert!(build_collection_client(&invalid).is_err());
         assert!(build_blocking(&invalid, Duration::from_secs(1)).is_err());
     }
 
@@ -156,7 +168,7 @@ mod tests {
         let http = Http::default();
         let clone = http.clone();
         let replacement = reqwest::Client::builder()
-            .user_agent("spotsie-test")
+            .user_agent("spotifast-test")
             .build()
             .unwrap();
         http.replace(replacement.clone());

@@ -9,54 +9,44 @@ use crate::player::RepeatMode;
 use crate::theme::{self, Icon};
 use crate::util;
 
-use super::widgets::{SliderEvent, thin_slider};
+use super::widgets::{PlaylistChecks, SliderEvent, thin_slider};
 
 /// How much of the playing art's tint the bar's fill carries.
 const TINT_STRENGTH: f32 = 0.12;
 /// How long the bar takes to cross over to a new song's tint.
 const TINT_FADE_SECONDS: f32 = 0.45;
 const TINT_SESSION_ID: &str = "player-bar-tint-session";
+/// The playlist checklist a liked song's heart opens.
+const LIKED_POPUP_ID: &str = "player-bar-liked-playlists";
+/// How strongly the visualizer shows through behind the controls: the
+/// spectrum's bars fade from their foot to their top, with a glow around
+/// them, a brighter cap above, and a pulse along the foot with the bass.
+const SPECTRUM_ALPHA: (f32, f32) = (0.28, 0.08);
+const GLOW_ALPHA: f32 = 0.12;
+const PEAK_ALPHA: f32 = 0.7;
+const PULSE_ALPHA: f32 = 0.35;
+/// The peak cap's thickness, and its gap above the band.
+const PEAK_HEIGHT: f32 = 2.0;
+const PEAK_GAP: f32 = 2.0;
+/// The waveform's line, as layers from the widest glow to the core, the
+/// shading under it, and its mirrored echo.
+const WAVE_LAYERS: [(f32, f32); 3] = [(9.0, 0.06), (4.0, 0.16), (1.6, 0.85)];
+const WAVE_FILL_ALPHA: f32 = 0.14;
+const WAVE_ECHO_ALPHA: f32 = 0.18;
+/// How much more strongly the visualizer paints over a light bar.
+const LIGHT_STRENGTH: f32 = 1.5;
+/// The gap between spectrum bars.
+const SPECTRUM_GAP: f32 = 2.0;
+
 /// Forget this bar's animation session while the sign-in screen is shown.
 pub(crate) fn end_tint_session(ctx: &egui::Context) {
     ctx.data_mut(|data| data.remove::<u64>(egui::Id::new(TINT_SESSION_ID)));
 }
 
-/// How long the bar stays up over the cover or the lyrics after the pointer
-/// last moved over it.
-const REVEAL_SECONDS: f64 = 1.5;
-
-/// Whether the bar shows over the cover or the lyrics: for a moment after
-/// the pointer moves where the bar sits, and while a control is held, the
-/// device list is open, or a menu opened from the bar (or anywhere) is up,
-/// so choosing from it never pulls the bar out from under the pointer.
-fn revealed(app: &App, ctx: &egui::Context) -> bool {
-    let id = egui::Id::new("player-bar-revealed-at");
-    let (now, active) = ctx.input(|input| {
-        let window = input.content_rect();
-        let near = input.pointer.hover_pos().is_some_and(|pos| {
-            pos.y >= window.bottom() - theme::PLAYER_BAR_HEIGHT && window.contains(pos)
-        });
-        let moved = input.pointer.delta() != Vec2::ZERO;
-        (input.time, near && (moved || input.pointer.any_down()))
-    });
-    if active || app.show_devices || egui::Popup::is_any_open(ctx) {
-        ctx.data_mut(|data| data.insert_temp(id, now));
-    }
-    let Some(at) = ctx.data(|data| data.get_temp::<f64>(id)) else {
-        return false;
-    };
-    let left = REVEAL_SECONDS - (now - at);
-    if left > 0.0 {
-        ctx.request_repaint_after(std::time::Duration::from_secs_f64(left));
-    }
-    left > 0.0
-}
-
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let fill = eased_fill(ui.ctx(), palette.panel, app.now_playing_tint());
-    let mut open = !super::immersive(app) || revealed(app, ui.ctx());
-    let panel = egui::Panel::bottom("player-bar")
+    egui::Panel::bottom("player-bar")
         .exact_size(theme::PLAYER_BAR_HEIGHT)
         .resizable(false)
         .show_separator_line(false)
@@ -64,251 +54,340 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             Frame::new()
                 .fill(fill)
                 .inner_margin(Margin::symmetric(16, 0)),
-        );
-    super::sliding_panel(ui, panel, "player-bar", &mut open, |ui| {
-        let rect = ui.max_rect();
-        let now = app.now_playing();
-        ui.painter().hline(
-            rect.x_range(),
-            rect.top() + 0.5,
-            egui::Stroke::new(1.0, palette.outline),
-        );
-        let width = rect.width();
-        let fit = Fit::for_width(width);
-        let shown = Shown::ease(ui.ctx(), fit);
-        // The side columns ease to their new width as controls come and go.
-        let side = crate::motion::tween(
-            ui.ctx(),
-            egui::Id::new("player-bar-side"),
-            fit.side(width),
-            crate::motion::STANDARD,
         )
-        .min(width / 2.0);
-        let cy = rect.center().y;
-        let left = Rect::from_min_max(rect.min, pos2(rect.left() + side, rect.bottom()));
-        let center = Rect::from_min_max(
-            pos2(rect.left() + side, rect.top()),
-            pos2(rect.right() - side, rect.bottom()),
-        );
-
-        // egui's cross-axis centring is unreliable across nested layouts of
-        // mixed heights, so each region is placed in an explicit band that
-        // is sized to its content and centred on the bar's midline.
-        if shown.art > 0.01 {
-            let mut left_ui = ui.new_child(UiBuilder::new().max_rect(left));
-            left_ui.set_clip_rect(left.intersect(ui.clip_rect()));
-            left_ui.set_opacity(shown.art);
-            now_playing_block(app, &mut left_ui, left, now.as_ref(), shown.title);
-        }
-
-        transport(app, ui, now.as_ref(), center, shown);
-
-        extras(app, ui, now.as_ref(), pos2(rect.right(), cy), shown);
-    });
-}
-
-/// What the bar has room for. As the window narrows the controls go one
-/// at a time, the least used first, until only Play is left.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Fit {
-    cover_view: bool,
-    lyrics: bool,
-    volume_slider: bool,
-    queue: bool,
-    times: bool,
-    shuffle_repeat: bool,
-    devices: bool,
-    mute: bool,
-    title: bool,
-    progress: bool,
-    skips: bool,
-    art: bool,
-}
-
-/// Room around the transport, so it never touches the side columns.
-const CENTER_PAD: f32 = 24.0;
-const TRANSPORT_GAP: f32 = 10.0;
-const EXTRAS_GAP: f32 = 6.0;
-const ICON_EDGE: f32 = 30.0;
-const VOLUME_WIDTH: f32 = 92.0;
-/// The song's name beside the cover needs at least this much.
-const TITLE_COLUMN: f32 = 200.0;
-/// The cover on its own.
-const ART_COLUMN: f32 = 68.0;
-/// The seek bar's shortest length, and the space its times take.
-const PROGRESS_MIN: f32 = 96.0;
-const TIMES_WIDTH: f32 = 96.0;
-/// The least the window narrows between one control going and the next.
-const STEP_SPACING: f32 = 24.0;
-
-impl Fit {
-    const ALL: Fit = Fit {
-        cover_view: true,
-        lyrics: true,
-        volume_slider: true,
-        queue: true,
-        times: true,
-        shuffle_repeat: true,
-        devices: true,
-        mute: true,
-        title: true,
-        progress: true,
-        skips: true,
-        art: true,
-    };
-
-    /// Each step drops one more control, in the order they go.
-    fn steps() -> impl Iterator<Item = Fit> {
-        let drops: [fn(&mut Fit); 12] = [
-            |f| f.cover_view = false,
-            |f| f.lyrics = false,
-            |f| f.volume_slider = false,
-            |f| f.queue = false,
-            |f| f.times = false,
-            |f| f.shuffle_repeat = false,
-            |f| f.devices = false,
-            |f| f.mute = false,
-            |f| f.title = false,
-            |f| f.progress = false,
-            |f| f.skips = false,
-            |f| f.art = false,
-        ];
-        let mut fit = Fit::ALL;
-        std::iter::once(fit).chain(drops.into_iter().map(move |drop| {
-            drop(&mut fit);
-            fit
-        }))
-    }
-
-    /// The most the bar can show in `width`. Each step comes in at least
-    /// `STEP_SPACING` wider than the one after it, even where dropping its
-    /// control frees no room, so they go and return one at a time.
-    fn for_width(width: f32) -> Fit {
-        let steps: Vec<Fit> = Fit::steps().collect();
-        let mut from = vec![0.0; steps.len()];
-        for i in (0..steps.len() - 1).rev() {
-            from[i] = steps[i].needs().max(from[i + 1] + STEP_SPACING);
-        }
-        steps
-            .iter()
-            .zip(from)
-            .find(|(_, from)| *from <= width)
-            .map(|(fit, _)| *fit)
-            .unwrap_or_else(|| *steps.last().expect("steps"))
-    }
-
-    fn left(&self) -> f32 {
-        if self.title {
-            TITLE_COLUMN
-        } else if self.art {
-            ART_COLUMN
-        } else {
-            0.0
-        }
-    }
-
-    fn right(&self) -> f32 {
-        let mut items = Vec::new();
-        for (on, width) in [
-            (self.volume_slider, VOLUME_WIDTH),
-            (self.mute, ICON_EDGE),
-            (self.devices, ICON_EDGE + 4.0),
-            (self.queue, ICON_EDGE),
-            (self.lyrics, ICON_EDGE),
-            (self.cover_view, ICON_EDGE),
-        ] {
-            if on {
-                items.push(width);
+        .show(ui, |ui| {
+            let rect = ui.max_rect();
+            let now = app.now_playing();
+            // The whole bar, margins included, behind everything else.
+            let behind = rect.expand2(vec2(16.0, 0.0));
+            if visualizer(app, ui, behind, now.as_ref()) {
+                theme::visualiser_frame(ui.ctx(), app.visualiser_fps());
             }
-        }
-        items.iter().sum::<f32>() + EXTRAS_GAP * items.len().saturating_sub(1) as f32
-    }
+            // Its empty space is the visualizer's control, as Winamp's
+            // visualizer was: a click moves to the next mode. The controls
+            // drawn after it take their own clicks.
+            if app.settings.player_bar_vis_click && app.visualizers_available() {
+                let empty = ui.interact(
+                    behind,
+                    ui.id().with("player-bar-visualizer"),
+                    Sense::click(),
+                );
+                // An open tooltip stays while the pointer is inside its widget's
+                // rect, and this one spans the bar: offer it only while the empty
+                // space itself is hovered, not the controls over it.
+                let empty = if empty.hovered() {
+                    empty.on_hover_text_at_pointer(gettext(
+                        app.locale,
+                        "Click to change the visualizer",
+                    ))
+                } else {
+                    empty
+                };
+                if empty.clicked() {
+                    app.actions.push(Action::CyclePlayerBarVis);
+                }
+            }
+            ui.painter().hline(
+                rect.x_range(),
+                rect.top() + 0.5,
+                egui::Stroke::new(1.0, palette.outline),
+            );
+            let width = rect.width();
+            let side = (width * 0.3).clamp(200.0, 420.0);
+            let cy = rect.center().y;
+            let left = Rect::from_min_max(rect.min, pos2(rect.left() + side, rect.bottom()));
+            let center = Rect::from_min_max(
+                pos2(rect.left() + side, rect.top()),
+                pos2(rect.right() - side, rect.bottom()),
+            );
 
-    fn transport(&self) -> f32 {
-        let mut width = 36.0;
-        if self.skips {
-            width += 2.0 * (30.0 + TRANSPORT_GAP);
+            // egui's cross-axis centring is unreliable across nested layouts of
+            // mixed heights, so each region is placed in an explicit band that
+            // is sized to its content and centred on the bar's midline.
+            now_playing_block(app, ui, left, now.as_ref());
+
+            transport(app, ui, now.as_ref(), center);
+
+            let right_band =
+                Rect::from_min_size(pos2(rect.right() - side, cy - 15.0), vec2(side, 30.0));
+            let mut right_ui = ui.new_child(
+                UiBuilder::new()
+                    .max_rect(right_band)
+                    .layout(Layout::right_to_left(Align::Center)),
+            );
+            let transport_right = center.center().x + transport_width() / 2.0;
+            extras(app, &mut right_ui, now.as_ref(), transport_right);
+        });
+}
+
+/// Draws the chosen spectrum or waveform of the song playing on this
+/// computer across `rect`, in colours drawn from the cover. It reads the
+/// same post-equalizer, pre-volume sound as the mini player's visualizer,
+/// so the volume never moves it. Returns whether it is still moving.
+fn visualizer(app: &mut App, ui: &egui::Ui, rect: Rect, now: Option<&NowPlaying>) -> bool {
+    use crate::settings::PlayerBarVis;
+    use crate::vis;
+    let mode = app.settings.player_bar_vis;
+    let sounding = app.visualizer_sounding(now);
+    let dark = ui.visuals().dark_mode;
+    let colours = vis_colours(app.now_playing_palette(), app.palette.accent, dark);
+    // Over a light bar the same colour paints more strongly, or white
+    // would wash it out.
+    let strength = if dark { 1.0 } else { LIGHT_STRENGTH };
+    let painter = ui.painter().with_clip_rect(rect);
+    match mode {
+        PlayerBarVis::Off => false,
+        PlayerBarVis::Spectrum => {
+            if !sounding && app.player_bar_analyser.settled() {
+                return false;
+            }
+            let samples = if sounding {
+                app.winamp
+                    .tap
+                    .window(vis::WIDE_SAMPLES, app.visualizer_lag())
+            } else {
+                Vec::new()
+            };
+            let levels = app
+                .player_bar_analyser
+                .step(&samples, std::time::Instant::now());
+            let peaks = app.player_bar_analyser.peaks();
+            spectrum(&painter, rect, &levels, &peaks, &colours, strength);
+            sounding || !app.player_bar_analyser.settled()
         }
-        if self.shuffle_repeat {
-            width += 2.0 * (29.0 + TRANSPORT_GAP);
+        PlayerBarVis::Waveform => {
+            if !sounding {
+                return false;
+            }
+            // Winamp's scope with a column every eight points or so.
+            let count = (rect.width() / 8.0).clamp(75.0, 320.0) as usize;
+            let samples = app
+                .winamp
+                .tap
+                .window(count * vis::SCOPE_STEP, app.visualizer_lag());
+            waveform(
+                &painter,
+                rect,
+                &vis::scope_line(&samples, count),
+                &colours,
+                strength,
+            );
+            true
         }
-        let progress = if self.progress {
-            PROGRESS_MIN + if self.times { TIMES_WIDTH } else { 0.0 }
-        } else {
-            0.0
+    }
+}
+
+/// The visualizer's colours, swept across from the bass to the treble. With
+/// colour from album art they are the cover's own: its hues in the cover's
+/// order, then its grey, drawn as a plain grey even when it is a near-black
+/// with a cast, so the bass and its pulse carry a hue whenever the cover has
+/// one. Otherwise they are the theme's accent for the bass, and the same
+/// turned a sixth of the way round the colour wheel for the treble. Each hue
+/// is made vivid, then all are kept to a band of
+/// brightness, so the words the bars pass behind always stand out: no lighter
+/// than [`DARK_CEILING`] under the dark theme's white text, no darker than
+/// [`LIGHT_FLOOR`] under the light theme's dark text.
+fn vis_colours(art: Option<&[[u8; 3]]>, accent: Color32, dark: bool) -> Vec<Color32> {
+    use crate::images::has_hue;
+    use egui::ecolor::Hsva;
+    let keep = |mut colour: Hsva, vivid: bool| {
+        colour.s = if vivid { colour.s.max(0.55) } else { 0.0 };
+        colour.v = 1.0;
+        colour.a = 1.0;
+        within_brightness(Color32::from(colour), dark)
+    };
+    if let Some(art) = art.filter(|art| !art.is_empty()) {
+        let colours = |vivid: bool| {
+            art.iter()
+                .filter(move |&&rgb| has_hue(rgb) == vivid)
+                .map(move |&rgb| keep(Hsva::from_srgb(rgb), vivid))
         };
-        width.max(progress) + CENTER_PAD
+        return colours(true).chain(colours(false)).collect();
     }
-
-    fn needs(&self) -> f32 {
-        2.0 * self.left().max(self.right()) + self.transport()
-    }
-
-    /// How wide each side column is: a share of the bar, never less than
-    /// either side needs, never so much that the transport is squeezed.
-    fn side(&self, width: f32) -> f32 {
-        let least = self.left().max(self.right());
-        let most = ((width - self.transport()) / 2.0).max(least);
-        (width * 0.3).clamp(least, most.min(420.0).max(least))
-    }
+    let low = Hsva::from(accent);
+    let mut high = low;
+    high.h = (high.h + 1.0 / 6.0).fract();
+    vec![keep(low, true), keep(high, true)]
 }
 
-/// How far each control has eased in, 0 gone to 1 shown.
-#[derive(Clone, Copy)]
-struct Shown {
-    cover_view: f32,
-    lyrics: f32,
-    volume_slider: f32,
-    queue: f32,
-    times: f32,
-    shuffle_repeat: f32,
-    devices: f32,
-    mute: f32,
-    title: f32,
-    progress: f32,
-    skips: f32,
-    art: f32,
+/// The colour `at` the given fraction of the way along `colours`, from the
+/// first at 0 to the last at 1.
+fn swept(colours: &[Color32], at: f32) -> Color32 {
+    let Some(last) = colours.len().checked_sub(1) else {
+        return Color32::TRANSPARENT;
+    };
+    if last == 0 {
+        return colours[0];
+    }
+    let place = at.clamp(0.0, 1.0) * last as f32;
+    let index = (place as usize).min(last - 1);
+    colours[index].lerp_to_gamma(colours[index + 1], place - index as f32)
 }
 
-impl Shown {
-    fn ease(ctx: &egui::Context, fit: Fit) -> Shown {
-        let k = |name: &'static str, on: bool| {
-            crate::motion::toggle(
-                ctx,
-                egui::Id::new(("player-bar-fit", name)),
-                on,
-                crate::motion::STANDARD,
-            )
-        };
-        Shown {
-            cover_view: k("cover-view", fit.cover_view),
-            lyrics: k("lyrics", fit.lyrics),
-            volume_slider: k("volume", fit.volume_slider),
-            queue: k("queue", fit.queue),
-            times: k("times", fit.times),
-            shuffle_repeat: k("shuffle-repeat", fit.shuffle_repeat),
-            devices: k("devices", fit.devices),
-            mute: k("mute", fit.mute),
-            title: k("title", fit.title),
-            progress: k("progress", fit.progress),
-            skips: k("skips", fit.skips),
-            art: k("art", fit.art),
+/// The most luminance a visualizer colour has under the dark theme, and the
+/// band it is kept in under the light theme, as relative luminance from 0
+/// to 1. On white the colour must be dark enough to show at all yet light
+/// enough that dark words stay clear over it.
+const DARK_CEILING: f32 = 0.35;
+const LIGHT_FLOOR: f32 = 0.2;
+const LIGHT_CEILING: f32 = 0.4;
+
+/// `colour` with its hue kept and its brightness moved into the band the
+/// theme's text reads against: darkened towards black when too light,
+/// lightened towards white when too dark.
+fn within_brightness(colour: Color32, dark: bool) -> Color32 {
+    let linear = egui::Rgba::from(colour);
+    let luminance = 0.2126 * linear.r() + 0.7152 * linear.g() + 0.0722 * linear.b();
+    let ceiling = if dark { DARK_CEILING } else { LIGHT_CEILING };
+    let adjusted = if luminance > ceiling {
+        linear * (ceiling / luminance)
+    } else if !dark && luminance < LIGHT_FLOOR {
+        let toward_white = (LIGHT_FLOOR - luminance) / (1.0 - luminance).max(f32::EPSILON);
+        egui::Rgba::from_rgb(
+            linear.r() + (1.0 - linear.r()) * toward_white,
+            linear.g() + (1.0 - linear.g()) * toward_white,
+            linear.b() + (1.0 - linear.b()) * toward_white,
+        )
+    } else {
+        linear
+    };
+    Color32::from(egui::Rgba::from_rgb(
+        adjusted.r(),
+        adjusted.g(),
+        adjusted.b(),
+    ))
+}
+
+/// Adds a rectangle shaded from `top` to `bottom`.
+fn shaded(mesh: &mut egui::Mesh, rect: Rect, top: Color32, bottom: Color32) {
+    let base = mesh.vertices.len() as u32;
+    mesh.colored_vertex(rect.left_top(), top);
+    mesh.colored_vertex(rect.right_top(), top);
+    mesh.colored_vertex(rect.right_bottom(), bottom);
+    mesh.colored_vertex(rect.left_bottom(), bottom);
+    mesh.add_triangle(base, base + 1, base + 2);
+    mesh.add_triangle(base, base + 2, base + 3);
+}
+
+/// Bars rising from the foot of the player bar, swept across the
+/// visualizer's colours from the bass to the treble, with a soft glow, a
+/// peak cap hanging above each, and the whole foot of the bar breathing with
+/// the bass.
+fn spectrum(
+    painter: &egui::Painter,
+    rect: Rect,
+    levels: &[f32],
+    peaks: &[f32],
+    colours: &[Color32],
+    strength: f32,
+) {
+    let bands = levels.len() as f32;
+    let width = (rect.width() - SPECTRUM_GAP * (bands - 1.0)) / bands;
+    // A full band reaches the top, with room above for its cap.
+    let reach = rect.height() - PEAK_GAP - PEAK_HEIGHT - 1.0;
+    let mut mesh = egui::Mesh::default();
+
+    // The bass pulse: a glow along the foot, as strong as the low bands.
+    let bass = levels.iter().take(levels.len() / 8).copied().sum::<f32>()
+        / (levels.len() / 8).max(1) as f32;
+    let pulse = Rect::from_min_max(pos2(rect.left(), rect.center().y), rect.right_bottom());
+    shaded(
+        &mut mesh,
+        pulse,
+        Color32::TRANSPARENT,
+        swept(colours, 0.0).gamma_multiply(PULSE_ALPHA * strength * bass * bass),
+    );
+
+    for (index, (level, peak)) in levels.iter().zip(peaks).enumerate() {
+        let left = rect.left() + index as f32 * (width + SPECTRUM_GAP);
+        let colour = swept(colours, index as f32 / (bands - 1.0));
+        let height = level * reach;
+        if height >= 1.0 {
+            let bar = Rect::from_min_max(
+                pos2(left, rect.bottom() - height),
+                pos2(left + width, rect.bottom()),
+            );
+            // The glow: the bar again, wider and fainter.
+            shaded(
+                &mut mesh,
+                bar.expand2(vec2(SPECTRUM_GAP, 3.0)),
+                colour.gamma_multiply(GLOW_ALPHA * strength * 0.3),
+                colour.gamma_multiply(GLOW_ALPHA * strength),
+            );
+            let (foot, top) = (SPECTRUM_ALPHA.0 * strength, SPECTRUM_ALPHA.1 * strength);
+            shaded(
+                &mut mesh,
+                bar,
+                colour.gamma_multiply(foot + (top - foot) * level),
+                colour.gamma_multiply(foot),
+            );
+        }
+        let cap = peak * reach;
+        if cap >= 2.0 {
+            let y = rect.bottom() - cap - PEAK_GAP;
+            shaded(
+                &mut mesh,
+                Rect::from_min_max(pos2(left, y - PEAK_HEIGHT), pos2(left + width, y)),
+                colour.gamma_multiply(PEAK_ALPHA),
+                colour.gamma_multiply(PEAK_ALPHA),
+            );
         }
     }
+    painter.add(egui::Shape::mesh(mesh));
 }
 
-/// A control's own band, faded to how far it has eased in. `None` once it
-/// has gone.
-fn faded(ui: &mut egui::Ui, rect: Rect, shown: f32) -> Option<egui::Ui> {
-    (shown > 0.01).then(|| {
-        let mut child = ui.new_child(
-            UiBuilder::new()
-                .max_rect(rect)
-                .layout(Layout::centered_and_justified(egui::Direction::LeftToRight)),
-        );
-        child.set_opacity(shown);
-        child
-    })
+/// The wave as a neon line in layers of glow, swept across the visualizer's
+/// colours from the bass to the treble, over a faint shading down to the
+/// midline and a dim mirrored echo.
+fn waveform(
+    painter: &egui::Painter,
+    rect: Rect,
+    trace: &[f32],
+    colours: &[Color32],
+    strength: f32,
+) {
+    if trace.len() < 2 {
+        return;
+    }
+    let reach = rect.height() * 0.46;
+    let step = rect.width() / (trace.len() - 1) as f32;
+    let midline = rect.center().y;
+    let point =
+        |index: usize, value: f32| pos2(rect.left() + index as f32 * step, midline - value * reach);
+    let colour_at = |index: usize| swept(colours, index as f32 / (trace.len() - 1) as f32);
+
+    // The shading between the wave and the midline.
+    let mut mesh = egui::Mesh::default();
+    for index in 0..trace.len() - 1 {
+        let colour = colour_at(index).gamma_multiply(WAVE_FILL_ALPHA * strength);
+        let base = mesh.vertices.len() as u32;
+        mesh.colored_vertex(point(index, trace[index]), colour);
+        mesh.colored_vertex(point(index + 1, trace[index + 1]), colour);
+        mesh.colored_vertex(pos2(point(index + 1, 0.0).x, midline), Color32::TRANSPARENT);
+        mesh.colored_vertex(pos2(point(index, 0.0).x, midline), Color32::TRANSPARENT);
+        mesh.add_triangle(base, base + 1, base + 2);
+        mesh.add_triangle(base, base + 2, base + 3);
+    }
+    painter.add(egui::Shape::mesh(mesh));
+
+    // Short runs of line, so the colour can sweep along the wave.
+    let run = 8;
+    let stroke = |mirror: f32, width: f32, alpha: f32| {
+        let mut start = 0;
+        while start < trace.len() - 1 {
+            let end = (start + run).min(trace.len() - 1);
+            let points = (start..=end)
+                .map(|index| point(index, trace[index] * mirror))
+                .collect();
+            let colour = colour_at((start + end) / 2).gamma_multiply(alpha);
+            painter.add(egui::Shape::line(points, egui::Stroke::new(width, colour)));
+            start = end;
+        }
+    };
+    stroke(-0.6, 1.0, WAVE_ECHO_ALPHA);
+    for (width, alpha) in WAVE_LAYERS {
+        stroke(1.0, width, alpha);
+    }
 }
 
 /// Ease the final fill's RGB. Untinted custom panels keep their alpha while
@@ -326,7 +405,7 @@ fn eased_fill(ctx: &egui::Context, panel: Color32, tint: Option<Color32>) -> Col
         ctx.animate_value_with_time(
             egui::Id::new(("player-bar-tint", session, axis)),
             f32::from(value),
-            TINT_FADE_SECONDS,
+            crate::motion::seconds(ctx, TINT_FADE_SECONDS),
         )
         .round() as u8
     };
@@ -338,22 +417,13 @@ fn eased_fill(ctx: &egui::Context, panel: Color32, tint: Option<Color32>) -> Col
     }
 }
 
-fn now_playing_block(
-    app: &mut App,
-    ui: &mut egui::Ui,
-    region: Rect,
-    now: Option<&NowPlaying>,
-    title_shown: f32,
-) {
+fn now_playing_block(app: &mut App, ui: &mut egui::Ui, region: Rect, now: Option<&NowPlaying>) {
     let palette = app.palette;
     let cy = region.center().y;
     let cover_rect = Rect::from_min_size(pos2(region.left() + 4.0, cy - 28.0), Vec2::splat(56.0));
 
     let Some(now) = now else {
         super::widgets::paint_cover(ui, &palette, None, cover_rect, 6.0, Icon::Music, None);
-        if title_shown <= 0.01 {
-            return;
-        }
         let text_left = cover_rect.right() + 12.0;
         let text_rect = Rect::from_min_size(
             pos2(text_left, cy - 17.0),
@@ -365,7 +435,6 @@ fn now_playing_block(
                 .layout(Layout::top_down(Align::Min)),
         );
         text_ui.spacing_mut().item_spacing.y = 2.0;
-        text_ui.multiply_opacity(title_shown);
         theme::text(
             &mut text_ui,
             gettext(app.locale, "Nothing playing"),
@@ -381,14 +450,14 @@ fn now_playing_block(
         return;
     };
 
-    super::widgets::paint_cover(
+    super::widgets::playing_cover(
         ui,
         &palette,
-        now.art_small.as_deref().or(now.art_url.as_deref()),
+        app.backend.art(),
+        "player-bar",
+        app.small_art(now, cover_rect.width()),
         cover_rect,
         6.0,
-        Icon::Music,
-        Some(app.backend.art()),
     );
     let song = app.now_playing_item();
     let drag_sense = if song.is_some() {
@@ -436,23 +505,31 @@ fn now_playing_block(
             app.actions.push(Action::SettingsChanged);
         }
     }
-    if title_shown <= 0.01 {
-        return;
-    }
-    ui.multiply_opacity(title_shown);
     let heart_width = if now.is_episode { 0.0 } else { 42.0 };
     let text_left = cover_rect.right() + 12.0;
     let text_width = (region.right() - text_left - heart_width).max(40.0);
-    let text_rect = Rect::from_min_size(pos2(text_left, cy - 18.0), vec2(text_width, 36.0));
-    let info_response = ui.interact(text_rect, egui::Id::new("now-playing-info"), drag_sense);
+    let displayed_text_width: f32 = {
+        let title =
+            ui.painter()
+                .layout_no_wrap(now.title.clone(), theme::medium(14.0), palette.text);
+        let subtitle = ui.painter().layout_no_wrap(
+            now.subtitle.clone(),
+            theme::regular(12.0),
+            palette.secondary,
+        );
+        title.size().x.max(subtitle.size().x).min(text_width)
+    };
+    let info_rect = Rect::from_min_size(pos2(text_left, cy - 18.0), vec2(text_width, 36.0));
+
     let mut text_ui = ui.new_child(
         UiBuilder::new()
-            .max_rect(text_rect)
+            .max_rect(info_rect)
             .layout(Layout::top_down(Align::Min)),
     );
-    text_ui.set_clip_rect(text_rect.intersect(ui.clip_rect()));
+    text_ui.set_clip_rect(info_rect.intersect(ui.clip_rect()));
     text_ui.spacing_mut().item_spacing.y = 2.0;
-    let title_response = theme::link(&mut text_ui, &now.title, theme::medium(14.0), palette.text);
+    let title_response = theme::link(&mut text_ui, &now.title, theme::medium(14.0), palette.text)
+        .interact(drag_sense);
     if title_response.clicked() {
         if let Some(id) = &now.album_id {
             app.actions.push(Action::Open(Page::Album(id.clone())));
@@ -460,97 +537,182 @@ fn now_playing_block(
             app.actions.push(Action::Open(Page::Show(id.clone())));
         }
     }
+    let mut responses = vec![cover_response, title_response];
     text_ui.horizontal_top(|ui| {
         if now.artists.is_empty() {
-            if theme::link(ui, &now.subtitle, theme::regular(12.0), palette.secondary).clicked()
+            let response = theme::link(ui, &now.subtitle, theme::regular(12.0), palette.secondary)
+                .interact(drag_sense);
+            if response.clicked()
                 && let Some(id) = &now.show_id
             {
                 app.actions.push(Action::Open(Page::Show(id.clone())));
             }
+            responses.push(response);
         } else {
-            super::widgets::artist_links(
-                ui,
-                app,
-                &now.artists,
-                theme::regular(12.0),
-                palette.secondary,
-            );
+            ui.spacing_mut().item_spacing.x = 0.0;
+            for (index, artist) in now.artists.iter().enumerate() {
+                if index > 0 {
+                    theme::text(ui, ", ", theme::regular(12.0), palette.secondary);
+                }
+                let response = if artist.id.is_some() {
+                    theme::link(ui, &artist.name, theme::regular(12.0), palette.secondary)
+                } else {
+                    theme::text(ui, &artist.name, theme::regular(12.0), palette.secondary)
+                }
+                .interact(drag_sense);
+                if response.clicked()
+                    && let Some(id) = &artist.id
+                {
+                    app.actions.push(Action::Open(Page::Artist(id.clone())));
+                }
+                responses.push(response);
+            }
         }
     });
-    if (cover_response.drag_started_by(egui::PointerButton::Primary)
-        || info_response.drag_started_by(egui::PointerButton::Primary))
+    if responses
+        .iter()
+        .any(|response| response.drag_started_by(egui::PointerButton::Primary))
         && let Some(item) = &song
     {
         egui::DragAndDrop::set_payload(
             ui.ctx(),
             DragTrack {
                 title: item.name().to_string(),
-                image: item.image(64).map(str::to_string),
+                image: app.item_image(item, 64),
                 items: vec![item.clone()],
                 from: None,
+                source_playlist: None,
             },
         );
     }
 
     // The playing thing answers the same right-click menu as a table row,
-    // from the cover, the empty space around the words, or the words.
-    if let Some(item) = song {
+    // from the cover or the words.
+    if let Some(item) = &song {
         let context = app.editable_context_playlist();
-        for response in [&cover_response, &info_response, &title_response] {
+        for response in &responses {
             egui::Popup::context_menu(response)
                 .frame(super::widgets::menu_frame(&palette))
-                .show(|ui| super::widgets::item_menu(ui, app, &item, context.as_ref(), None));
+                .show(|ui| super::widgets::item_menu(ui, app, item, context.as_ref(), None));
         }
     }
 
     if !now.is_episode {
         let saved = app.is_saved(&now.uri).unwrap_or(false);
-        let (icon, color, tooltip) = if saved {
+        // A liked heart stays green under the pointer, like shuffle.
+        let (icon, color, hover, tooltip) = if saved {
             (
                 Icon::HeartFilled,
                 palette.accent,
-                gettext(app.locale, "Remove from Liked Songs"),
+                palette.accent_hover,
+                gettext(app.locale, "Add to playlist"),
             )
         } else {
             (
                 Icon::Heart,
                 palette.secondary,
+                palette.text,
                 gettext(app.locale, "Save to Liked Songs"),
             )
         };
         // Sit the heart just past the actual text, not at the region's far
         // edge, so it stays visually attached to the title.
-        let natural = {
-            let title =
-                ui.painter()
-                    .layout_no_wrap(now.title.clone(), theme::medium(14.0), palette.text);
-            let subtitle = ui.painter().layout_no_wrap(
-                now.subtitle.clone(),
-                theme::regular(12.0),
-                palette.secondary,
-            );
-            title.size().x.max(subtitle.size().x).min(text_width)
-        };
-        let heart_x = (text_left + natural + 21.0).min(region.right() - 21.0);
+        let heart_x = (text_left + displayed_text_width + 21.0).min(region.right() - 21.0);
         let heart_rect = Rect::from_center_size(pos2(heart_x, cy), Vec2::splat(30.0));
         let mut heart_ui = ui.new_child(
             UiBuilder::new()
                 .max_rect(heart_rect)
                 .layout(Layout::centered_and_justified(egui::Direction::LeftToRight)),
         );
-        if theme::icon_button(&mut heart_ui, icon, 17.0, color, palette.text, &tooltip).clicked() {
-            app.actions.push(Action::ToggleSaved(now.uri.clone()));
+        let response = theme::icon_button(&mut heart_ui, icon, 17.0, color, hover, &tooltip);
+        let popup_id = egui::Id::new(LIKED_POPUP_ID);
+        let query_id = popup_id.with("query");
+        let checks_id = popup_id.with("checks");
+        // What the menu holds while open, dropped once it closes.
+        let forget = |ui: &mut egui::Ui| {
+            ui.data_mut(|data| {
+                data.remove::<String>(query_id);
+                data.remove::<PlaylistChecks>(checks_id);
+            });
+        };
+        // A liked song's heart opens a checklist of Liked Songs and the
+        // playlists, as Spotify's phone app does: checks change nothing
+        // until Done, and a click outside drops them. The first click on a
+        // song not yet liked still likes it at once (#792).
+        match song.as_ref().filter(|_| saved) {
+            None => {
+                egui::Popup::close_id(ui.ctx(), popup_id);
+                forget(ui);
+                if response.clicked() {
+                    app.actions.push(Action::ToggleSaved(now.uri.clone()));
+                }
+            }
+            Some(item) => {
+                let shown = egui::Popup::menu(&response)
+                    .id(popup_id)
+                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                    .frame(super::widgets::menu_frame(&palette))
+                    .show(|ui| {
+                        let stored = ui.data(|data| data.get_temp::<String>(query_id));
+                        let fresh = stored.is_none();
+                        let mut query = stored.unwrap_or_default();
+                        let mut checks = ui
+                            .data(|data| data.get_temp::<PlaylistChecks>(checks_id))
+                            .filter(|checks| checks.uri == item.uri())
+                            .unwrap_or_else(|| PlaylistChecks::new(app, item));
+                        let before = app.actions.len();
+                        let field = super::widgets::playlist_picker(
+                            ui,
+                            app,
+                            std::slice::from_ref(item),
+                            &mut query,
+                            Some(&mut checks),
+                        );
+                        if fresh {
+                            field.request_focus();
+                        }
+                        super::widgets::menu_separator(ui, &palette);
+                        let done = ui
+                            .with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                theme::pill_button(ui, &palette, &gettext(app.locale, "Done"), true)
+                            })
+                            .inner
+                            .clicked();
+                        if done {
+                            if !checks.liked {
+                                app.actions.push(Action::ToggleSaved(now.uri.clone()));
+                            }
+                            let changes = checks.changes(app, item);
+                            app.actions.extend(changes);
+                        }
+                        ui.data_mut(|data| {
+                            data.insert_temp(query_id, query);
+                            data.insert_temp(checks_id, checks);
+                        });
+                        // Done or New playlist closes it.
+                        if done || app.actions.len() > before {
+                            ui.close();
+                        }
+                    });
+                if shown.is_none() {
+                    forget(ui);
+                }
+            }
         }
     }
 }
 
-fn transport(
-    app: &mut App,
-    ui: &mut egui::Ui,
-    now: Option<&NowPlaying>,
-    region: Rect,
-    shown: Shown,
-) {
+/// The transport's button widths: icon buttons occupy icon size + 12; the
+/// disc is 36.
+const TRANSPORT_WIDTHS: [f32; 5] = [29.0, 30.0, 36.0, 30.0, 29.0];
+const TRANSPORT_GAP: f32 = 10.0;
+
+/// The transport's buttons from Shuffle to Repeat, centred in the bar.
+fn transport_width() -> f32 {
+    TRANSPORT_WIDTHS.iter().sum::<f32>() + TRANSPORT_GAP * 4.0
+}
+
+fn transport(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, region: Rect) {
     let palette = app.palette;
     // Everything here is placed with explicit rects: egui's implicit rows
     // centre each widget in the row height known when it is added, which
@@ -560,8 +722,8 @@ fn transport(
     // one cluster, centred as a group in the 88px bar: the buttons sit 8px
     // above the bar's midline and the progress row 23px below it. Measured
     // on screen this puts equal breathing room above and beneath the
-    // cluster. Without the progress row the buttons settle on the midline.
-    let cy = region.center().y - 8.0 * shown.progress;
+    // cluster.
+    let cy = region.center().y - 8.0;
     let enabled = now.is_some_and(|now| now.can_control) || app.is_connected();
     let playing = now.is_some_and(|now| now.playing);
     let loading = now.is_some_and(|now| now.loading);
@@ -573,31 +735,12 @@ fn transport(
         palette.dim
     };
 
-    // Button widths: icon buttons occupy icon size + 12; the disc is 36.
-    // A control making way narrows its slot as it fades, so the rest close
-    // in around Play.
-    let widths = [29.0, 30.0, 36.0, 30.0, 29.0];
-    let eased = [
-        shown.shuffle_repeat,
-        shown.skips,
-        1.0,
-        shown.skips,
-        shown.shuffle_repeat,
-    ];
-    let slots: [Rect; 5] = {
-        let total: f32 = widths
-            .iter()
-            .zip(eased)
-            .map(|(width, k)| (width + TRANSPORT_GAP) * k)
-            .sum::<f32>()
-            - TRANSPORT_GAP;
-        let mut x = region.center().x - total / 2.0;
-        std::array::from_fn(|i| {
-            let room = widths[i] * eased[i];
-            let rect = Rect::from_center_size(pos2(x + room / 2.0, cy), vec2(widths[i], 36.0));
-            x += (widths[i] + TRANSPORT_GAP) * eased[i];
-            rect
-        })
+    let widths = TRANSPORT_WIDTHS;
+    let mut x = region.center().x - transport_width() / 2.0;
+    let mut slot = |width: f32| {
+        let rect = Rect::from_center_size(pos2(x + width / 2.0, cy), vec2(width, 36.0));
+        x += width + TRANSPORT_GAP;
+        rect
     };
     let centered = |ui: &mut egui::Ui, rect: Rect| {
         ui.new_child(
@@ -608,52 +751,55 @@ fn transport(
     };
 
     let shuffle_color = if shuffle { palette.accent } else { dim };
-    if let Some(mut cell) = faded(ui, slots[0], shown.shuffle_repeat) {
-        let shuffle_button = theme::icon_button(
-            &mut cell,
-            Icon::Shuffle,
-            17.0,
-            shuffle_color,
-            if shuffle {
-                palette.accent_hover
-            } else {
-                palette.text
-            },
-            &gettext(app.locale, "Shuffle"),
-        );
-        shuffle_button.widget_info(|| {
-            egui::WidgetInfo::selected(
-                egui::WidgetType::Checkbox,
-                cell.is_enabled(),
-                shuffle,
-                gettext(app.locale, "Shuffle"),
-            )
-        });
-        if shuffle_button.clicked() {
-            app.actions.push(Action::ToggleShuffle);
-        }
+    let mut cell = centered(ui, slot(widths[0]));
+    let shuffle_button = theme::icon_button(
+        &mut cell,
+        Icon::Shuffle,
+        17.0,
+        shuffle_color,
+        if shuffle {
+            palette.accent_hover
+        } else {
+            palette.text
+        },
+        &gettext(app.locale, "Shuffle"),
+    );
+    shuffle_button.widget_info(|| {
+        egui::WidgetInfo::selected(
+            egui::WidgetType::Checkbox,
+            cell.is_enabled(),
+            shuffle,
+            gettext(app.locale, "Shuffle"),
+        )
+    });
+    if shuffle_button.clicked() {
+        app.actions.push(Action::ToggleShuffle);
     }
 
-    if let Some(mut cell) = faded(ui, slots[1], shown.skips)
-        && theme::icon_button(
-            &mut cell,
-            Icon::SkipBackFilled,
-            18.0,
-            dim,
-            palette.text,
-            &gettext(app.locale, "Previous"),
-        )
-        .clicked()
+    let mut cell = centered(ui, slot(widths[1]));
+    if theme::icon_button(
+        &mut cell,
+        Icon::SkipBackFilled,
+        18.0,
+        dim,
+        palette.text,
+        &gettext(app.locale, "Previous"),
+    )
+    .clicked()
     {
         app.actions.push(Action::Previous);
     }
 
-    let disc = slots[2];
+    let disc = slot(widths[2]);
     if loading || app.any_play_pending() {
-        ui.painter()
-            .circle_filled(disc.center(), 18.0, palette.text);
         let mut cell = centered(ui, disc);
-        theme::spinner(&mut cell, 22.0, palette.window);
+        theme::circle_spinner(
+            &mut cell,
+            36.0,
+            palette.text,
+            palette.window,
+            &gettext(app.locale, "Loading…"),
+        );
     } else {
         let icon = if playing {
             Icon::PauseFilled
@@ -685,16 +831,16 @@ fn transport(
         }
     }
 
-    if let Some(mut cell) = faded(ui, slots[3], shown.skips)
-        && theme::icon_button(
-            &mut cell,
-            Icon::SkipForwardFilled,
-            18.0,
-            dim,
-            palette.text,
-            &gettext(app.locale, "Next"),
-        )
-        .clicked()
+    let mut cell = centered(ui, slot(widths[3]));
+    if theme::icon_button(
+        &mut cell,
+        Icon::SkipForwardFilled,
+        18.0,
+        dim,
+        palette.text,
+        &gettext(app.locale, "Next"),
+    )
+    .clicked()
     {
         app.actions.push(Action::Next);
     }
@@ -712,33 +858,28 @@ fn transport(
             gettext(app.locale, "Repeat off"),
         ),
     };
-    if let Some(mut cell) = faded(ui, slots[4], shown.shuffle_repeat)
-        && theme::icon_button(
-            &mut cell,
-            repeat_icon,
-            17.0,
-            repeat_color,
-            if repeat == RepeatMode::Off {
-                palette.text
-            } else {
-                palette.accent_hover
-            },
-            &tooltip,
-        )
-        .clicked()
+    let mut cell = centered(ui, slot(widths[4]));
+    if theme::icon_button(
+        &mut cell,
+        repeat_icon,
+        17.0,
+        repeat_color,
+        if repeat == RepeatMode::Off {
+            palette.text
+        } else {
+            palette.accent_hover
+        },
+        &tooltip,
+    )
+    .clicked()
     {
         app.actions.push(Action::CycleRepeat);
     }
 
-    if shown.progress <= 0.01 {
-        return;
-    }
     // Progress row, just below the buttons (disc bottom + 6px gap + half of
-    // the time text's line height). It shortens with the window, and its
-    // times make way before it does.
+    // the time text's line height).
     let row_cy = cy + 31.0;
-    let slider_width = (region.width() - CENTER_PAD - TIMES_WIDTH * shown.times).clamp(0.0, 620.0);
-    let times_color = |color: Color32| color.gamma_multiply(shown.times * shown.progress);
+    let slider_width = (region.width() - 120.0).clamp(120.0, 620.0);
     let (position, duration) = now
         .map(|now| (now.position_ms, now.duration_ms))
         .unwrap_or((0, 0));
@@ -757,7 +898,7 @@ fn transport(
         egui::Align2::RIGHT_CENTER,
         util::format_duration_ms(shown_position),
         theme::regular(11.5),
-        times_color(time_color),
+        time_color,
     );
     let slider_rect =
         Rect::from_center_size(pos2(region.center().x, row_cy), vec2(slider_width, 16.0));
@@ -766,7 +907,6 @@ fn transport(
             .max_rect(slider_rect)
             .layout(Layout::left_to_right(Align::Center)),
     );
-    slider_ui.set_opacity(shown.progress);
     let fraction = if duration > 0 {
         position as f32 / duration as f32
     } else {
@@ -796,61 +936,62 @@ fn transport(
         egui::Align2::LEFT_CENTER,
         util::format_duration_ms(duration),
         theme::regular(11.5),
-        times_color(time_color),
+        time_color,
     );
 }
 
-/// Volume, devices, queue, lyrics and cover view, laid out leftwards from
-/// `right`. A control making way narrows its slot as it fades.
-fn extras(
-    app: &mut App,
-    ui: &mut egui::Ui,
-    now: Option<&NowPlaying>,
-    right: egui::Pos2,
-    shown: Shown,
-) {
+/// What the right of the bar always holds, in points: the volume slider and
+/// its button, the devices, queue and lyrics buttons, and the gaps.
+const EXTRAS_WIDTH: f32 = 92.0 + 4.0 * (18.0 + theme::ICON_BUTTON_PAD) + 4.0 * 6.0 + 4.0;
+
+/// Whether the full screen button has room beside the rest, keeping clear of
+/// the transport, with `room` points to the right of it.
+fn full_screen_button_fits(room: f32) -> bool {
+    room >= EXTRAS_WIDTH + 18.0 + theme::ICON_BUTTON_PAD + 6.0 + TRANSPORT_GAP
+}
+
+fn extras(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, transport_right: f32) {
     let palette = app.palette;
-    let mut x = right.x;
-    let mut slot = |width: f32, k: f32| {
-        let rect =
-            Rect::from_center_size(pos2(x - width * k / 2.0, right.y), vec2(width, ICON_EDGE));
-        x -= (width + EXTRAS_GAP) * k;
-        rect
-    };
+    ui.spacing_mut().item_spacing.x = 6.0;
     let volume = now
         .map(|now| now.volume_percent)
         .unwrap_or_else(|| crate::app::volume_to_percent(app.local.volume));
-    let shown_volume = match app.volume_preview {
+    let shown = match app.volume_preview {
         Some(fraction) => (fraction * 100.0).round() as u8,
         None => volume,
     };
     // Some remote devices, such as a phone playing over Bluetooth, refuse
     // volume changes from other apps: show their volume but don't offer to
     // change it.
-    let adjustable = now.is_none_or(|now| now.can_set_volume);
-    let mut volume_rect = Rect::NOTHING;
-    let slider = slot(VOLUME_WIDTH, shown.volume_slider);
-    if let Some(mut cell) = faded(ui, slider, shown.volume_slider) {
-        if !adjustable {
-            cell.disable();
+    let adjustable = !app.soloist_waiting() && now.is_none_or(|now| now.can_set_volume);
+    // The bar's last control, right of the volume, like Spotify's. It gives
+    // way before anything else, once Listening activity has; **F** stays.
+    let room = ui.max_rect().right() - transport_right;
+    if full_screen_button_fits(room) {
+        let inside = app.lyrics_fullscreen.is_some();
+        let (icon, tip) = if inside {
+            (Icon::Shrink, gettext(app.locale, "Leave full screen (Esc)"))
+        } else {
+            (Icon::Expand, gettext(app.locale, "Full screen lyrics"))
+        };
+        if theme::icon_button(ui, icon, 18.0, palette.secondary, palette.text, &tip).clicked() {
+            app.actions.push(Action::SetLyricsFullscreen(!inside));
         }
-        volume_rect = volume_rect.union(slider);
+    }
+    let controls = ui.add_enabled_ui(adjustable, |ui| {
         match thin_slider(
-            &mut cell,
+            ui,
             &palette,
             egui::Id::new("volume-slider"),
             &gettext(app.locale, "Volume (%)"),
-            shown_volume as f32 / 100.0,
-            VOLUME_WIDTH,
+            shown as f32 / 100.0,
+            92.0,
             Some(0.05),
         ) {
             SliderEvent::Dragging(value) => {
                 app.volume_preview = Some(value);
-                // Local volume is cheap to apply continuously; remote goes on release.
-                if now.is_none_or(|now| now.local) {
-                    app.actions
-                        .push(Action::PreviewVolume((value * 100.0).round() as u8));
-                }
+                app.actions
+                    .push(Action::PreviewVolume((value * 100.0).round() as u8));
             }
             SliderEvent::Committed(value) => {
                 app.volume_preview = None;
@@ -859,26 +1000,19 @@ fn extras(
             }
             SliderEvent::None => {}
         }
-    }
-    let mute = slot(ICON_EDGE, shown.mute);
-    if let Some(mut cell) = faded(ui, mute, shown.mute) {
-        if !adjustable {
-            cell.disable();
-        }
-        volume_rect = volume_rect.union(mute);
-        let volume_icon = match shown_volume {
+        let volume_icon = match shown {
             0 => Icon::VolumeX,
             1..=33 => Icon::Volume,
             34..=66 => Icon::Volume1,
             _ => Icon::Volume2,
         };
         if theme::icon_button(
-            &mut cell,
+            ui,
             volume_icon,
             18.0,
             palette.secondary,
             palette.text,
-            &if shown_volume == 0 {
+            &if shown == 0 {
                 gettext(app.locale, "Unmute")
             } else {
                 gettext(app.locale, "Mute")
@@ -888,104 +1022,105 @@ fn extras(
         {
             app.actions.push(Action::ToggleMute);
         }
-    }
-    if !adjustable && volume_rect.is_positive() {
+    });
+    if !adjustable {
         ui.interact(
-            volume_rect,
+            controls.response.rect,
             egui::Id::new("volume-fixed"),
             egui::Sense::hover(),
         )
         .on_hover_text(gettext(
             app.locale,
-            "This device's volume can't be changed from Spotsie",
+            "This device's volume can't be changed from Spotifast",
         ));
     }
-    let remote = now.is_some_and(|now| !now.local);
-    // The devices button keeps a little more room from the volume.
-    let devices = slot(ICON_EDGE + 4.0, shown.devices);
-    let devices = Rect::from_center_size(devices.center() - vec2(2.0, 0.0), Vec2::splat(ICON_EDGE));
-    if let Some(mut cell) = faded(ui, devices, shown.devices) {
-        let response = theme::icon_button(
-            &mut cell,
-            Icon::Speaker,
-            18.0,
-            if remote {
-                palette.accent
-            } else {
-                palette.secondary
-            },
-            palette.text,
-            &gettext(app.locale, "Connect to a device"),
-        );
-        ui.ctx().data_mut(|data| {
-            data.insert_temp(egui::Id::new(super::devices::BUTTON_RECT_ID), response.rect)
-        });
-        if response.clicked() {
-            app.actions.push(Action::ToggleDevicesPopup);
-        }
+    ui.add_space(4.0);
+    let remote = now.is_some_and(|now| !now.local) && !app.targets_own_soloist();
+    // Playing elsewhere, the button shows that device's own icon.
+    let icon = now
+        .filter(|_| remote)
+        .and_then(|now| now.device_kind.as_deref())
+        .map_or(Icon::Speaker, super::devices::device_icon);
+    let devices = theme::icon_button(
+        ui,
+        icon,
+        18.0,
+        if remote {
+            palette.accent
+        } else {
+            palette.secondary
+        },
+        palette.text,
+        &gettext(app.locale, "Connect to a device"),
+    );
+    ui.ctx().data_mut(|data| {
+        data.insert_temp(egui::Id::new(super::devices::BUTTON_RECT_ID), devices.rect)
+    });
+    if devices.clicked() {
+        app.actions.push(Action::ToggleDevicesPopup);
     }
     let queue_open = app.show_queue_panel || matches!(app.page(), Page::Queue);
-    if let Some(mut cell) = faded(ui, slot(ICON_EDGE, shown.queue), shown.queue) {
-        let queue_button = theme::icon_button(
-            &mut cell,
-            Icon::ListVideo,
-            18.0,
-            if queue_open {
-                palette.accent
-            } else {
-                palette.secondary
-            },
-            palette.text,
-            &gettext(app.locale, "Queue"),
-        );
-        if queue_button.clicked() {
-            app.actions.push(Action::ToggleQueuePanel);
-        }
-        // A dragged song dropped on the queue button queues it, same as the
-        // "Add to queue" menu item.
-        if let Some(track) = queue_button.dnd_release_payload::<DragTrack>() {
-            app.actions.push(Action::QueueMany {
-                songs: track
-                    .items
-                    .iter()
-                    .map(|item| (item.uri().to_string(), item.name().to_string()))
-                    .collect(),
-            });
-        }
+    let queue_button = theme::icon_button(
+        ui,
+        Icon::ListVideo,
+        18.0,
+        if queue_open {
+            palette.accent
+        } else {
+            palette.secondary
+        },
+        palette.text,
+        &gettext(app.locale, "Queue"),
+    );
+    if queue_button.clicked() {
+        app.actions.push(Action::ToggleQueuePanel);
     }
-    if let Some(mut cell) = faded(ui, slot(ICON_EDGE, shown.lyrics), shown.lyrics)
-        && theme::icon_button(
-            &mut cell,
-            Icon::Lyrics,
-            18.0,
-            if app.show_lyrics_panel {
-                palette.accent
-            } else {
-                palette.secondary
-            },
-            palette.text,
-            &gettext(app.locale, "Lyrics"),
-        )
-        .clicked()
+    // A dragged song dropped on the queue button queues it, same as the
+    // "Add to queue" menu item.
+    if let Some(track) = queue_button.dnd_release_payload::<DragTrack>() {
+        app.actions.push(Action::QueueMany {
+            songs: track
+                .items
+                .iter()
+                .map(|item| (item.uri().to_string(), item.name().to_string()))
+                .collect(),
+        });
+    }
+    if theme::icon_button(
+        ui,
+        Icon::Mic,
+        18.0,
+        if app.show_lyrics_panel {
+            palette.accent
+        } else {
+            palette.secondary
+        },
+        palette.text,
+        &gettext(app.locale, "Lyrics"),
+    )
+    .clicked()
     {
         app.actions.push(Action::ToggleLyricsPanel);
     }
-    if let Some(mut cell) = faded(ui, slot(ICON_EDGE, shown.cover_view), shown.cover_view)
+    // The Listening activity button is the first to go in a narrow window,
+    // so it never crowds the transport.
+    let left = ui.min_rect().left() - ui.spacing().item_spacing.x - (18.0 + theme::ICON_BUTTON_PAD);
+    if left - transport_right >= TRANSPORT_GAP
         && theme::icon_button(
-            &mut cell,
-            Icon::CoverView,
+            ui,
+            Icon::Users,
             18.0,
-            if app.show_cover_view {
+            if app.show_friends_panel {
                 palette.accent
             } else {
                 palette.secondary
             },
             palette.text,
-            &gettext(app.locale, "Cover view"),
+            &gettext(app.locale, "Listening activity"),
         )
         .clicked()
     {
-        app.actions.push(Action::ToggleCoverView);
+        app.actions.push(Action::ToggleFriendsPanel);
     }
 }
 
@@ -1098,52 +1233,83 @@ mod player_bar_tint_tests {
         end_tint_session(&ctx);
         assert_eq!(frame(&ctx, 0.22, panel, None), panel);
     }
-}
 
-#[cfg(test)]
-mod player_bar_fit_tests {
-    use super::*;
-
-    /// At any width the side columns hold what they show and the transport
-    /// keeps its room between them, so nothing overlaps.
+    /// However light or dark the cover or the theme's accent, the
+    /// visualizer's colours stay in the band the theme's text reads against,
+    /// and keep their hue.
     #[test]
-    fn nothing_overlaps_at_any_width() {
-        for width in (40..=2400).step_by(5) {
-            let width = width as f32;
-            let fit = Fit::for_width(width);
-            if fit == Fit::steps().last().unwrap() {
-                continue;
+    fn visualizer_colours_stay_behind_the_words() {
+        let luminance = |colour: Color32| {
+            let linear = egui::Rgba::from(colour);
+            0.2126 * linear.r() + 0.7152 * linear.g() + 0.0722 * linear.b()
+        };
+        for base in [
+            Color32::from_rgb(255, 240, 80),
+            Color32::from_rgb(20, 30, 90),
+            Color32::WHITE,
+            Color32::BLACK,
+            Color32::from_rgb(30, 215, 96),
+        ] {
+            let art = [[base.r(), base.g(), base.b()]];
+            for (art, accent) in [(Some(&art[..]), Color32::RED), (None, base)] {
+                for colour in vis_colours(art, accent, true) {
+                    assert!(
+                        luminance(colour) <= DARK_CEILING + 0.01,
+                        "{base:?} on dark: {colour:?}"
+                    );
+                }
+                for colour in vis_colours(art, accent, false) {
+                    assert!(
+                        (LIGHT_FLOOR - 0.01..=LIGHT_CEILING + 0.01).contains(&luminance(colour)),
+                        "{base:?} on light: {colour:?}"
+                    );
+                }
             }
-            let side = fit.side(width);
-            assert!(
-                side >= fit.left() && side >= fit.right(),
-                "{width}: {fit:?}"
-            );
-            assert!(
-                width - 2.0 * side + 0.01 >= fit.transport(),
-                "{width}: {fit:?} side {side}"
-            );
         }
+        // A yellow cover stays yellow, only deeper.
+        let low = vis_colours(Some(&[[255, 240, 80]]), Color32::RED, true)[0];
+        assert!(low.r() > low.b() && low.g() > low.b(), "{low:?}");
     }
 
-    /// Narrowing takes controls away one at a time and widening brings
-    /// them back, down to Play alone.
+    /// With colour from album art the bars take the cover's own colours,
+    /// its accent at the bass and its last colour at the treble, and a grey
+    /// cover's bars stay grey. Without, they turn the theme's accent.
     #[test]
-    fn controls_go_one_at_a_time_down_to_play() {
-        assert_eq!(Fit::for_width(1400.0), Fit::ALL);
-        let tiny = Fit::for_width(60.0);
-        assert_eq!(tiny, Fit::steps().last().unwrap());
-        assert!(!tiny.skips && !tiny.art && !tiny.progress && !tiny.mute);
-        let step = |fit: Fit| Fit::steps().position(|s| s == fit).unwrap();
-        let mut last = 0;
-        for width in (60..=1400).rev().step_by(2) {
-            let now = step(Fit::for_width(width as f32));
-            assert!(now <= last + 1, "two controls went at once at {width}");
-            assert!(
-                now >= last,
-                "a control came back while narrowing at {width}"
-            );
-            last = now;
+    fn visualizer_sweeps_across_the_covers_colours() {
+        let art = [[200, 40, 40], [40, 200, 60], [40, 40, 200]];
+        let colours = vis_colours(Some(&art), Color32::WHITE, true);
+        assert_eq!(colours.len(), 3);
+        let [red, green, blue] = [colours[0], colours[1], colours[2]];
+        assert!(red.r() > red.g() && red.r() > red.b(), "{red:?}");
+        assert!(green.g() > green.r() && green.g() > green.b(), "{green:?}");
+        assert!(blue.b() > blue.r() && blue.b() > blue.g(), "{blue:?}");
+        assert_eq!(swept(&colours, 0.0), red);
+        assert_eq!(swept(&colours, 0.5), green);
+        assert_eq!(swept(&colours, 1.0), blue);
+        assert_eq!(swept(&colours[..1], 0.7), red);
+
+        let spread = |c: Color32| c.r().max(c.g()).max(c.b()) - c.r().min(c.g()).min(c.b());
+        for cover in [[150, 140, 140], [40, 20, 8]] {
+            let grey = vis_colours(Some(&[cover]), Color32::RED, true)[0];
+            assert!(spread(grey) < 4, "{cover:?} stays grey: {grey:?}");
         }
+        // A grey accent gives the bass to the cover's hue.
+        let colours = vis_colours(
+            Some(&[[150, 140, 140], [200, 40, 40]]),
+            Color32::WHITE,
+            true,
+        );
+        assert!(colours[0].r() > colours[0].g() * 2, "{colours:?}");
+        assert!(spread(colours[1]) < 24, "{colours:?}");
+
+        let accent = Color32::from_rgb(30, 215, 96);
+        assert_eq!(vis_colours(None, accent, true).len(), 2);
+    }
+
+    /// A window too narrow for it loses the button, not the volume.
+    #[test]
+    fn the_full_screen_button_goes_when_the_bar_is_tight() {
+        assert!(full_screen_button_fits(320.0));
+        assert!(!full_screen_button_fits(200.0));
     }
 }

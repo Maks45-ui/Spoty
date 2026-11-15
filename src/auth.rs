@@ -3,14 +3,14 @@
 //! Independent grants exist because Spotify treats them differently:
 //!
 //! - The **Web API grant** comes from the listener's own Spotify app, its
-//!   personal app. A shared grant from an earlier version, issued to an app
+//!   personal app. A shared grant from before 0.14.2, issued to an app
 //!   another project registered, keeps working until Spotify refuses it,
 //!   but no new one is ever made: that app was not ours to hand out.
 //! - The **playback grant** uses Spotify's desktop client identity, the one
 //!   librespot streams with. Its access token is exchanged once for a
 //!   reusable credential kept in the platform credential store. Spotify
-//!   answers that identity's Web API requests with "too many requests", so
-//!   it cannot stand in for the personal app.
+//!   answers that identity's Web API requests with "too many requests"
+//!   from the first one, so it cannot stand in for the personal app.
 //!
 //! The browser does the password entry; this process only ever sees the
 //! one-time authorization code that Spotify sends back to a loopback
@@ -26,7 +26,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 
@@ -67,6 +67,10 @@ pub const WEB_SCOPES: &[&str] = &[
 const AUTHORIZE_URL: &str = "https://accounts.spotify.com/authorize";
 const TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+/// A browser sends its request line at once; anything slower or longer is
+/// not the redirect, and must not hold the listener while the user waits.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+const REQUEST_LINE_LIMIT: u64 = 8 * 1024;
 /// Refresh this long before the access token expires.
 const REFRESH_MARGIN: Duration = Duration::from_secs(90);
 
@@ -90,7 +94,7 @@ impl Grant {
     pub fn personal_web_api(client_id: &str) -> Result<Self> {
         let client_id = client_id.trim();
         if client_id.is_empty() {
-            bail!("a personal Spotify Client ID is required");
+            bail!("a Spotify Client ID is required");
         }
         Ok(Self {
             client_id: client_id.to_string(),
@@ -117,17 +121,17 @@ pub fn looks_like_client_id(id: &str) -> bool {
 }
 
 /// Asks Spotify whether it knows a Client ID, without a sign-in: a token
-/// request with a code that cannot be valid is refused as an unknown client
-/// for an ID Spotify never issued, and as a bad code for one it did. `None`
-/// when the answer says neither or Spotify can't be reached: the browser
-/// then finds out.
+/// request with a code that cannot be valid is refused as an unknown
+/// client for an ID Spotify has never issued, and as a bad code for one it
+/// has. `None` when the answer says neither, or Spotify cannot be reached:
+/// the browser then finds out.
 pub async fn client_known(http: &reqwest::Client, client_id: &str) -> Option<bool> {
     let response = http
         .post(TOKEN_URL)
         .form(&[
             ("client_id", client_id),
             ("grant_type", "authorization_code"),
-            ("code", "spotsie-client-check"),
+            ("code", "spotifast-client-check"),
             ("redirect_uri", personal_redirect_uri().as_str()),
             ("code_verifier", random_token(48).as_str()),
         ])
@@ -198,19 +202,26 @@ pub struct TokenResponse {
     pub scope: Option<String>,
 }
 
-/// Listens for Spotify's redirect and returns the authorization code.
+/// Reserve the callback port before offering or opening browser sign-in.
+pub fn listen_for_redirect(port: u16) -> Result<TcpListener> {
+    let address: SocketAddr = ([127, 0, 0, 1], port).into();
+    let listener = std::net::TcpListener::bind(address).with_context(|| {
+        format!("Cannot start Spotify sign-in: port {port} is in use or unavailable. Close the app using this port, then try again.")
+    })?;
+    listener.set_nonblocking(true)?;
+    Ok(TcpListener::from_std(listener)?)
+}
+
+/// Listens on a reserved port for Spotify's redirect and returns the
+/// authorization code.
 ///
 /// Ends early when `cancel` flips to true (the user gave up) or after ten
 /// minutes.
-pub async fn wait_for_code(
-    port: u16,
+pub async fn wait_for_code_on_listener(
+    listener: TcpListener,
     expected_state: &str,
     mut cancel: watch::Receiver<bool>,
 ) -> Result<String> {
-    let address: SocketAddr = ([127, 0, 0, 1], port).into();
-    let listener = TcpListener::bind(address)
-        .await
-        .with_context(|| format!("unable to listen on {address} for the Spotify redirect"))?;
     let deadline = tokio::time::sleep(LOGIN_TIMEOUT);
     tokio::pin!(deadline);
 
@@ -224,10 +235,11 @@ pub async fn wait_for_code(
             _ = &mut deadline => bail!("sign-in timed out; try again"),
         };
 
-        let mut reader = BufReader::new(&mut stream);
+        let mut reader = BufReader::new(&mut stream).take(REQUEST_LINE_LIMIT);
         let mut request_line = String::new();
-        if reader.read_line(&mut request_line).await.is_err() {
-            continue;
+        match tokio::time::timeout(REQUEST_TIMEOUT, reader.read_line(&mut request_line)).await {
+            Ok(Ok(_)) if request_line.ends_with('\n') => {}
+            _ => continue,
         }
         let outcome = parse_request_line(&request_line, expected_state);
         let (status, body) = match &outcome {
@@ -376,7 +388,8 @@ fn decode_token_response(
 }
 
 /// The Web API grant, serialized only inside protected credential storage.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+/// Deliberately has no Debug implementation: it contains usable secrets.
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct StoredToken {
     pub client_id: String,
     pub access_token: String,
@@ -468,26 +481,23 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-/// Spotsie's own icon, drawn on the page the browser lands on after sign-in.
-const LOGO: &str = include_str!("../packaging/icons/spotsie.svg");
-
 fn page(title: &str, heading: &str, body: &str, accent: &str) -> String {
     format!(
         "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{title}</title>\
 <style>:root{{color-scheme:dark}}body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f1114;color:#e8eaed;font-family:Inter,system-ui,sans-serif}}\
 main{{max-width:28rem;padding:2.5rem;border-radius:1.25rem;background:#181b20;box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center}}\
-.mark{{width:72px;height:72px;border-radius:50%;box-shadow:0 0 0 3px #181b20,0 0 0 5px {accent};margin:0 auto 1.5rem}}\
-.mark svg{{width:72px;height:72px;display:block}}h1{{font-size:1.4rem;margin:.25rem 0 .5rem}}p{{color:#a5adba;line-height:1.5;margin:0}}</style>\
-<main><div class=\"mark\">{LOGO}</div>\
+.mark{{width:64px;height:64px;border-radius:50%;background:{accent};display:grid;place-items:center;margin:0 auto 1.25rem}}\
+.mark svg{{width:30px;height:30px;fill:#0f1114}}h1{{font-size:1.4rem;margin:.25rem 0 .5rem}}p{{color:#a5adba;line-height:1.5;margin:0}}</style>\
+<main><div class=\"mark\"><svg viewBox=\"0 0 24 24\"><path d=\"M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z\"/></svg></div>\
 <h1>{heading}</h1><p>{body}</p></main><script>setTimeout(function(){{window.close()}},1500)</script></html>"
     )
 }
 
 fn success_page() -> String {
     page(
-        "Signed in to Spoty",
+        "Signed in to Spotifast",
         "You're signed in",
-        "You can close this tab and go back to Spoty.",
+        "You can close this tab and go back to Spotifast.",
         "#1ed760",
     )
 }
@@ -496,21 +506,13 @@ fn failure_page(reason: &str) -> String {
     page(
         "Sign-in failed",
         "Sign-in didn't complete",
-        &format!("{reason}. Return to Spoty and try again."),
+        &format!("{reason}. Return to Spotifast and try again."),
         "#f5717f",
     )
 }
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn the_browser_pages_carry_spotsies_own_icon() {
-        for page in [super::success_page(), super::failure_page("denied")] {
-            assert!(page.contains(super::LOGO.trim()));
-            assert!(page.contains("radialGradient id=\"vinyl\""));
-        }
-    }
-
     #[test]
     fn token_errors_never_include_authorization_response_contents() {
         for (status, body) in [
@@ -540,6 +542,68 @@ mod tests {
     }
 
     use super::*;
+
+    #[tokio::test]
+    async fn redirect_listener_can_retry_after_port_is_released() {
+        // A test running alongside can be handed the port between its
+        // release and the retry, so that case tries again on another port.
+        let (listener, port) = (0..10)
+            .find_map(|_| {
+                let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+                let port = occupied.local_addr().unwrap().port();
+                let error = listen_for_redirect(port).unwrap_err().to_string();
+                assert!(error.contains(&port.to_string()));
+                assert!(error.contains("try again"));
+                drop(occupied);
+                Some((listen_for_redirect(port).ok()?, port))
+            })
+            .expect("a released port can be listened on again");
+        let (cancel, receiver) = watch::channel(false);
+        let waiting =
+            tokio::spawn(
+                async move { wait_for_code_on_listener(listener, "state", receiver).await },
+            );
+        let mut browser = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
+        browser
+            .write_all(b"GET /login?code=test-code&state=state HTTP/1.1\r\n\r\n")
+            .await
+            .unwrap();
+        let code = tokio::time::timeout(Duration::from_secs(2), waiting)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(code, "test-code");
+        drop(cancel);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_stalled_or_endless_request_does_not_hold_the_redirect_listener() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let mut stalled = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
+        stalled.write_all(b"GET /login?code=").await.unwrap();
+        let mut endless = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
+        endless.write_all(&[b'a'; 16 * 1024]).await.unwrap();
+        let mut browser = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
+        browser
+            .write_all(b"GET /login?code=test-code&state=state HTTP/1.1\r\n\r\n")
+            .await
+            .unwrap();
+        let (_cancel, receiver) = watch::channel(false);
+        let code = wait_for_code_on_listener(listener, "state", receiver)
+            .await
+            .unwrap();
+        assert_eq!(code, "test-code");
+    }
 
     #[test]
     fn old_web_grants_require_image_upload_consent() {
@@ -630,16 +694,16 @@ mod tests {
             ..token.clone()
         };
         assert!(expired.needs_refresh());
-        let dir = std::env::temp_dir().join(format!("spotsie-token-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("spotifast-token-{}", std::process::id()));
         let path = dir.join("token.json");
         token.save(&path).unwrap();
-        assert_eq!(StoredToken::load(&path), Some(token));
+        assert!(StoredToken::load(&path) == Some(token));
         StoredToken::remove(&path);
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// The redirect URI the onboarding tells listeners to register is the
-    /// one the personal app's sign-in sends.
+    /// The redirect URI the sign-in screen tells listeners to register is
+    /// the one the personal app's sign-in sends.
     #[test]
     fn the_redirect_uri_to_register_is_the_one_sign_in_uses() {
         assert_eq!(personal_redirect_uri(), "http://127.0.0.1:8989/login");
@@ -661,8 +725,8 @@ mod tests {
         ));
     }
 
-    /// What Spotify's token endpoint answers for a made-up code, with an
-    /// unknown Client ID and with a real one.
+    /// What Spotify's token endpoint answered for a made-up code, with an
+    /// unknown client ID and with a real one (2026-10-25).
     #[test]
     fn an_unknown_client_is_told_apart_from_a_bad_code() {
         let bad = reqwest::StatusCode::BAD_REQUEST;

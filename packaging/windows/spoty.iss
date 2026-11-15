@@ -8,7 +8,7 @@
 [Setup]
 AppId={{DE4F4173-7AC1-4516-A460-F65189FBE53A}
 AppName=Spoty
-AppVersion=0.1.0
+AppVersion=0.2.0
 AppPublisher=Maks45-ui
 AppSupportURL=https://github.com/Maks45-ui/Spoty/issues
 DefaultDirName={localappdata}\Programs\Spoty
@@ -21,7 +21,7 @@ MinVersion=10.0
 LicenseFile=..\..\LICENSE
 OutputDir={#OutputDir}
 OutputBaseFilename=Spoty-Setup-x64
-SetupIconFile=spotsie.ico
+SetupIconFile=spotifast.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

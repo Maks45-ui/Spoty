@@ -12,8 +12,8 @@ use crate::theme::Icon;
 use crate::util;
 
 use super::collection::{
-    Actions, Hero, Table, actions_row, hero, hero_images, remember_table_items, songs_and_duration,
-    table, table_items_hit,
+    Actions, Hero, HeroArt, Table, actions_row, hero, hero_images, remember_table_items,
+    songs_and_duration, table, table_items_hit,
 };
 use super::widgets;
 
@@ -39,8 +39,6 @@ pub fn radio(app: &mut App, ui: &mut egui::Ui, seed: &str) {
     }
     let generation = page.generation;
     let refreshing = page.refreshing;
-    // Play in Spotify's own context for this radio once it is known.
-    let station = page.context.clone().unwrap_or(station);
     let state = match &page.songs {
         Loadable::Loaded(songs) => Ok(Some((
             songs.len(),
@@ -74,12 +72,14 @@ pub fn radio(app: &mut App, ui: &mut egui::Ui, seed: &str) {
         app,
         ui,
         Hero {
-            images: hero_images(&images, None, false),
+            images: hero_images(&images, None, false, HeroArt::of(app)),
             liked: false,
             kind: gettext(locale, "Radio"),
             title: &name,
             description,
             byline,
+            byline_tooltip: None,
+            avatar: None,
             round: false,
         },
     );
@@ -109,7 +109,7 @@ pub fn radio(app: &mut App, ui: &mut egui::Ui, seed: &str) {
                     None,
                 );
             } else {
-                widgets::loading_row(ui, &app.palette, app.locale);
+                widgets::skeleton_rows(ui, &app.palette, app.locale, 8);
             }
             return;
         }
@@ -168,12 +168,14 @@ pub fn radio(app: &mut App, ui: &mut egui::Ui, seed: &str) {
             show_cover: true,
             show_added: false,
             show_added_by: false,
+            show_plays: false,
             page: key,
             loading: false,
             error: None,
             can_load_more: false,
             filter: "",
             items_revision: generation,
+            plays_shown_rows: false,
         },
     );
 }
@@ -195,6 +197,7 @@ fn radio_actions<'a>(
         reload: Some((Page::Radio(seed.to_string()), !loaded)),
         name,
         save_radio: Some(seed.to_string()),
+        plays_shown_rows: false,
     }
 }
 
@@ -222,19 +225,23 @@ fn featuring(locale: Locale, songs: &[Track]) -> Option<String> {
     }
     match names.as_slice() {
         [] => None,
+        // Translators: {first} is an artist name.
         [first] => Some(gettext(locale, "With {first}").replace("{first}", first)),
         [first, second] => Some(
+            // Translators: {first} and {second} are artist names.
             gettext(locale, "With {first} and {second}")
                 .replace("{first}", first)
                 .replace("{second}", second),
         ),
         [first, second, third] => Some(
+            // Translators: {first}, {second} and {third} are artist names.
             gettext(locale, "With {first}, {second} and {third}")
                 .replace("{first}", first)
                 .replace("{second}", second)
                 .replace("{third}", third),
         ),
         [first, second, third, ..] => Some(
+            // Translators: {first}, {second} and {third} are artist names; more follow.
             gettext(locale, "With {first}, {second}, {third} and more")
                 .replace("{first}", first)
                 .replace("{second}", second)

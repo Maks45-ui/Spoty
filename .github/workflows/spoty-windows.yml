@@ -20,7 +20,7 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo build --locked --release --target x86_64-pc-windows-msvc --bin spoty
+          cargo build --locked --release --no-default-features --target x86_64-pc-windows-msvc --bin spoty
       - name: Build installer
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -69,4 +69,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/Spoty-Setup-x64.exe dist/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Spoty Windows x64 preview" \
-            --notes "Windows 10/11 x64. Unsigned preview. Spotify Premium and a personal Spotify OAuth Client ID are required for playback. Based on Spotsie v0.1.8 (MIT)."
+            --notes "Windows 10/11 x64. Spoty can play locally with Spotify Soloist after one-time setup. A personal Spotify Client ID and Soloist API key are required. The app downloads Soloist directly from Spotify. Unsigned preview based on Spotifast (MIT)."

@@ -13,6 +13,3 @@ docs/.bundle/
 /.cache/
 
 /dist/
-
-# The maintainer's working notes.
-/spotsie-upgrades.txt

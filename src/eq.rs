@@ -1,17 +1,17 @@
 //! Ten-band equalizer for local playback.
 //!
-//! Each band uses a second-order peaking filter. Bands and preamp range
+//! Each Winamp band uses a second-order peaking filter. Bands and preamp range
 //! from -12 to +12 dB. The UI writes settings behind a mutex; the player reads
 //! them once per packet and rebuilds filters only after changes.
 //!
-//! This stage does not clip boosted samples. `output::OutputStage` limits the signal
+//! This stage does not clip boosted samples. `vis::Tapped` limits the signal
 //! later, after accounting for output volume.
 
 use std::sync::{Arc, Mutex};
 
 use librespot_playback::{NUM_CHANNELS, SAMPLE_RATE};
 
-/// The centre frequencies, Winamp's classic ten, in hertz.
+/// The centre frequencies, Winamp's, in hertz.
 pub const BANDS: [f32; 10] = [
     60.0, 170.0, 310.0, 600.0, 1000.0, 3000.0, 6000.0, 12000.0, 14000.0, 16000.0,
 ];
@@ -23,13 +23,18 @@ const FLAT: f32 = 0.05;
 /// combined response meet them; a guard, not a target.
 const SOLVED_LIMIT: f64 = 36.0;
 
-/// Equalizer and preamp settings.
+/// Equalizer, preamp, balance, and mono settings.
+///
+/// Balance and mono apply even when the equalizer is off.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EqSettings {
     pub on: bool,
     /// Twelve decibels either way, like the bands.
     pub preamp_db: f32,
     pub bands_db: [f32; 10],
+    /// -1 is all left, 1 all right.
+    pub balance: f32,
+    pub mono: bool,
 }
 
 impl Default for EqSettings {
@@ -38,6 +43,8 @@ impl Default for EqSettings {
             on: false,
             preamp_db: 0.0,
             bands_db: [0.0; 10],
+            balance: 0.0,
+            mono: false,
         }
     }
 }
@@ -49,7 +56,14 @@ impl EqSettings {
         for band in &mut self.bands_db {
             *band = band.clamp(-RANGE_DB, RANGE_DB);
         }
+        self.balance = self.balance.clamp(-1.0, 1.0);
         self
+    }
+
+    /// Per-channel balance gains. The quieter side is attenuated.
+    pub fn channel_gains(&self) -> [f64; 2] {
+        let balance = f64::from(self.balance);
+        [(1.0 - balance).min(1.0), (1.0 + balance).min(1.0)]
     }
 
     /// Filter response used for playback and the curve display.
@@ -106,6 +120,10 @@ fn band_widths() -> [f64; 10] {
 /// Builds filters whose combined response matches each slider at its centre.
 /// Adjacent filters overlap, so their individual gains are solved together.
 fn chain(bands_db: &[f32; 10]) -> Vec<Biquad> {
+    chain_at_rate(bands_db, f64::from(SAMPLE_RATE))
+}
+
+fn chain_at_rate(bands_db: &[f32; 10], sample_rate: f64) -> Vec<Biquad> {
     let widths = band_widths();
     let target: [f64; 10] = bands_db.map(f64::from);
     if target.iter().all(|gain| gain.abs() <= f64::from(FLAT)) {
@@ -114,14 +132,14 @@ fn chain(bands_db: &[f32; 10]) -> Vec<Biquad> {
     // How much each band moves every centre, per decibel it is given.
     let mut unit = [[0.0; 10]; 10];
     for (j, (hz, width)) in BANDS.iter().zip(widths).enumerate() {
-        let filter = Biquad::peaking(f64::from(*hz), width, 1.0);
+        let filter = Biquad::peaking(f64::from(*hz), width, 1.0, sample_rate);
         for (i, centre) in BANDS.iter().enumerate() {
             unit[i][j] = filter.gain_db_at(f64::from(*centre));
         }
     }
     let mut gains = target;
     for _ in 0..6 {
-        let filters: Vec<(usize, Biquad)> = filters_for(&gains, &widths);
+        let filters: Vec<(usize, Biquad)> = filters_for(&gains, &widths, sample_rate);
         let mut residual = [0.0; 10];
         for (i, centre) in BANDS.iter().enumerate() {
             let played: f64 = filters
@@ -138,21 +156,26 @@ fn chain(bands_db: &[f32; 10]) -> Vec<Biquad> {
             *gain = (*gain - step).clamp(-SOLVED_LIMIT, SOLVED_LIMIT);
         }
     }
-    filters_for(&gains, &widths)
+    filters_for(&gains, &widths, sample_rate)
         .into_iter()
         .map(|(_, filter)| filter)
         .collect()
 }
 
 /// The bands worth running, with the filter for each.
-fn filters_for(gains: &[f64; 10], widths: &[f64; 10]) -> Vec<(usize, Biquad)> {
+fn filters_for(gains: &[f64; 10], widths: &[f64; 10], sample_rate: f64) -> Vec<(usize, Biquad)> {
     BANDS
         .iter()
         .zip(widths)
         .zip(gains)
         .enumerate()
         .filter(|(_, (_, gain))| gain.abs() > f64::from(FLAT))
-        .map(|(index, ((hz, width), gain))| (index, Biquad::peaking(f64::from(*hz), *width, *gain)))
+        .map(|(index, ((hz, width), gain))| {
+            (
+                index,
+                Biquad::peaking(f64::from(*hz), *width, *gain, sample_rate),
+            )
+        })
         .collect()
 }
 
@@ -206,8 +229,11 @@ pub struct Preset {
     pub bands_db: [f32; 10],
 }
 
-/// Winamp's eighteen presets, in its order, then scenario presets of
-/// this app's.
+/// Winamp's presets, in its order.
+/// How many of `PRESETS` are Winamp's own, in its order; what follows
+/// are scenario presets of this app's, shown behind a separator.
+pub const WINAMP_PRESET_COUNT: usize = 18;
+
 pub const PRESETS: &[Preset] = &[
     Preset {
         name: "Flat",
@@ -325,6 +351,7 @@ pub fn shared() -> SharedEq {
 /// A second-order section in direct form I, one per band and channel.
 #[derive(Clone, Copy, Debug, Default)]
 struct Biquad {
+    sample_rate: f64,
     b0: f64,
     b1: f64,
     b2: f64,
@@ -342,13 +369,14 @@ impl Biquad {
     /// taken the cookbook's digital way, with its `w0 / sin(w0)` term: near
     /// the top of the band the plain analog Q would have come out three
     /// times too narrow, which is what rippled the treble.
-    fn peaking(hz: f64, width: f64, gain_db: f64) -> Self {
+    fn peaking(hz: f64, width: f64, gain_db: f64, sample_rate: f64) -> Self {
         let a = 10f64.powf(gain_db / 40.0);
-        let w0 = std::f64::consts::TAU * hz / f64::from(SAMPLE_RATE);
+        let w0 = std::f64::consts::TAU * hz / sample_rate;
         let (sin, cos) = w0.sin_cos();
         let alpha = sin * ((std::f64::consts::LN_2 / 2.0) * width * w0 / sin).sinh();
         let a0 = 1.0 + alpha / a;
         Self {
+            sample_rate,
             b0: (1.0 + alpha * a) / a0,
             b1: (-2.0 * cos) / a0,
             b2: (1.0 - alpha * a) / a0,
@@ -362,7 +390,7 @@ impl Biquad {
     /// function on the unit circle: what is played, including the bend
     /// the bilinear transform puts near the top of the band.
     fn gain_db_at(&self, hz: f64) -> f64 {
-        let w = std::f64::consts::TAU * hz / f64::from(SAMPLE_RATE);
+        let w = std::f64::consts::TAU * hz / self.sample_rate;
         let (sin1, cos1) = w.sin_cos();
         let (sin2, cos2) = (2.0 * w).sin_cos();
         let numerator = (self.b0 + self.b1 * cos1 + self.b2 * cos2).powi(2)
@@ -387,6 +415,7 @@ impl Biquad {
 
 /// The filters on the player's thread, rebuilt when the settings change.
 pub struct Processor {
+    sample_rate: f64,
     shared: SharedEq,
     applied: EqSettings,
     /// One chain per channel; a band at flat is left out of the chain.
@@ -396,7 +425,13 @@ pub struct Processor {
 
 impl Processor {
     pub fn new(shared: SharedEq) -> Self {
+        Self::at_rate(shared, SAMPLE_RATE)
+    }
+
+    /// Process native-rate audio without resampling it for the equalizer.
+    pub fn at_rate(shared: SharedEq, sample_rate: u32) -> Self {
         let mut processor = Self {
+            sample_rate: f64::from(sample_rate.max(1)),
             shared,
             applied: EqSettings::default(),
             chains: vec![Vec::new(); NUM_CHANNELS as usize],
@@ -409,11 +444,29 @@ impl Processor {
     fn rebuild(&mut self) {
         let settings = self.applied;
         self.gain = 10f64.powf(f64::from(settings.preamp_db) / 20.0);
-        self.chains = vec![chain(&settings.bands_db); NUM_CHANNELS as usize];
+        self.chains =
+            vec![chain_at_rate(&settings.bands_db, self.sample_rate); NUM_CHANNELS as usize];
+    }
+
+    /// Discards the previous signal without changing the filter settings.
+    pub fn reset(&mut self) {
+        for filter in self.chains.iter_mut().flatten() {
+            filter.x1 = 0.0;
+            filter.x2 = 0.0;
+            filter.y1 = 0.0;
+            filter.y2 = 0.0;
+        }
     }
 
     /// Runs interleaved stereo samples through the equalizer, in place.
     pub fn process(&mut self, samples: &mut [f64]) {
+        self.sync();
+        self.apply(samples);
+    }
+
+    /// Takes up the shared settings. Locks and may allocate, so a realtime
+    /// thread leaves this to another one: see `prepared`.
+    fn sync(&mut self) {
         let wanted = self
             .shared
             .lock()
@@ -423,21 +476,48 @@ impl Processor {
             self.applied = wanted;
             self.rebuild();
         }
-        if !self.applied.on || (self.chains[0].is_empty() && self.gain == 1.0) {
+    }
+
+    /// A processor with the shared settings already applied, for handing to
+    /// a realtime thread that calls `apply` and never looks at them.
+    #[cfg(target_os = "linux")]
+    pub fn prepared(shared: SharedEq, sample_rate: u32) -> Self {
+        let mut processor = Self::at_rate(shared, sample_rate);
+        processor.sync();
+        processor
+    }
+
+    /// `process` with the settings as they stand. No lock, no allocation.
+    pub fn apply(&mut self, samples: &mut [f64]) {
+        let shaping = self.applied.on && !(self.chains[0].is_empty() && self.gain == 1.0);
+        let gains = self.applied.channel_gains();
+        let placing = self.applied.mono || gains != [1.0, 1.0];
+        if !shaping && !placing {
             return;
         }
         let channels = self.chains.len();
-        // No ceiling here. These are floats with room to spare, and the one
-        // ceiling in the chain sits at the end, past the volume: a boost that
-        // would clip at full volume is fine three notches down, and holding
-        // it back here would take that away for good. See `output::OutputStage`.
         for frame in samples.chunks_exact_mut(channels) {
-            for (sample, chain) in frame.iter_mut().zip(self.chains.iter_mut()) {
-                let mut y = *sample * self.gain;
-                for filter in chain.iter_mut() {
-                    y = filter.run(y);
+            if shaping {
+                for (sample, chain) in frame.iter_mut().zip(self.chains.iter_mut()) {
+                    let mut y = *sample * self.gain;
+                    for filter in chain.iter_mut() {
+                        y = filter.run(y);
+                    }
+                    *sample = y;
                 }
-                *sample = y;
+            }
+            if self.applied.mono && frame.len() == 2 {
+                let middle = (frame[0] + frame[1]) / 2.0;
+                frame[0] = middle;
+                frame[1] = middle;
+            }
+            for (sample, gain) in frame.iter_mut().zip(gains) {
+                // No ceiling here. These are floats with room to spare, and
+                // the one ceiling in the chain sits at the end, past the
+                // volume: a boost that would clip at full volume is fine
+                // three notches down, and holding it back here would take
+                // that away for good. See `vis::Tapped`.
+                *sample *= gain;
             }
         }
     }
@@ -524,6 +604,31 @@ mod tests {
         .clamped();
         assert_eq!(clamped.preamp_db, RANGE_DB);
         assert!(clamped.bands_db.iter().all(|band| *band == RANGE_DB));
+    }
+
+    #[test]
+    fn balance_turns_one_side_down_and_mono_makes_the_sides_the_same() {
+        let shared = shared();
+        let mut processor = Processor::new(shared.clone());
+        let mut samples = vec![0.5, -0.25, 0.5, -0.25];
+        shared.lock().unwrap().balance = 0.5;
+        processor.process(&mut samples);
+        assert_eq!(samples, vec![0.25, -0.25, 0.25, -0.25]);
+
+        shared.lock().unwrap().balance = 0.0;
+        shared.lock().unwrap().mono = true;
+        let mut samples = vec![0.5, -0.25];
+        processor.process(&mut samples);
+        assert_eq!(samples, vec![0.125, 0.125]);
+        assert_eq!(
+            EqSettings {
+                balance: 3.0,
+                ..EqSettings::default()
+            }
+            .clamped()
+            .balance,
+            1.0
+        );
     }
 
     /// Every preset, played, meets its sliders at every band's centre,

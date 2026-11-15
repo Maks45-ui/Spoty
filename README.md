@@ -1,31 +1,27 @@
 # Spoty
 
-Неофициальный оконный клиент Spotify для Windows на Rust. Интерфейс построен на egui с OpenGL, звук воспроизводит librespot. В клиенте есть поиск, сохранённая музыка, плейлисты, очередь и медиаклавиши. Интерфейс приложения на английском.
+Оконный клиент Spotify для Windows на Rust. В версии 0.2.0 локальное воспроизведение работает через Spotify Soloist, официальный фоновый компонент Spotify. После первого сопряжения обычное приложение Spotify можно закрыть.
 
-## Тестовая сборка для Windows 10 и 11 x64
+## Установка и первый запуск
 
-1. Откройте [Releases](https://github.com/Maks45-ui/Spoty/releases) и скачайте `Spoty-Setup-x64.exe`. Для доступа к релизу нужен доступ к приватному репозиторию.
-2. Запустите установщик и откройте Spoty из меню «Пуск». Сборка не подписана. Для установки в профиль пользователя права администратора не нужны.
-3. Войдите в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) с аккаунтом Spotify Premium. Создайте приложение, добавьте Redirect URI `http://127.0.0.1:8989/login` и выберите Web API. Скопируйте Client ID в Spoty, затем подтвердите вход на странице Spotify. Client Secret не нужен.
+1. Скачай `Spoty-Setup-x64.exe` из [Releases](https://github.com/Maks45-ui/Spoty/releases). Для загрузки нужен доступ к приватному репозиторию. Тестовый установщик без цифровой подписи.
+2. Полностью закрой предыдущий Spoty через меню в области уведомлений. Запусти установщик и открой Spoty из меню «Пуск».
+3. Введи Client ID приложения из [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). Подойдёт прежний Client ID с Redirect URI `http://127.0.0.1:8989/login`. Эта версия хранит настройки и сеанс отдельно, поэтому вход потребуется снова.
+4. Нажми **Set up Soloist** или открой **Settings → Spotify Soloist**. Получи личный [Soloist API Key](https://developer.spotify.com/dashboard/soloist) и введи его в Spoty. Этот ключ отличается от Client ID. Spoty скачает Soloist напрямую с серверов Spotify.
+5. Для первого сопряжения запусти трек в обычном Spotify под тем же аккаунтом и выбери в списке устройств **Spoty Soloist (…)**. Когда Spoty подтвердит подключение, нажми **Start listening**. После этого можно закрыть обычный Spotify и выбирать треки в Spoty.
 
-Подробнее о настройке и типичных ошибках можно прочитать в [руководстве исходного проекта](docs/_guide/make-it-even-faster.md).
+Используй Soloist для локального воспроизведения. Встроенный альтернативный движок librespot может выдавать [ошибку аудиоключа](https://github.com/librespot-org/librespot/issues/1649) на некоторых аккаунтах Premium.
 
 ## Сборка
 
-На Windows установите Rust через rustup и Visual Studio Build Tools с компонентами C++ и Windows SDK.
+На Windows нужны Rust через rustup и Visual Studio Build Tools с компонентами C++ и Windows SDK.
 
 ```powershell
-cargo build --locked --release --target x86_64-pc-windows-msvc --bin spoty
+cargo build --locked --release --no-default-features --target x86_64-pc-windows-msvc --bin spoty
 ```
 
-Программа появится в `target/x86_64-pc-windows-msvc/release/spoty.exe`. Для создания установщика используйте Inno Setup 6 и передайте абсолютные пути к бинарнику и папке назначения.
-
-```powershell
-ISCC.exe "/DBinary=$PWD\target\x86_64-pc-windows-msvc\release\spoty.exe" "/DOutputDir=$PWD\dist" packaging\windows\spoty.iss
-```
-
-GitHub Actions собирает установщик, проверяет установку и удаление и добавляет установщик и SHA-256 в предварительный релиз для тегов `spoty-v*`. Новые версии устанавливаются вручную из Releases.
+Установщик собирается с Inno Setup 6. GitHub Actions проверяет установку, запуск с `--version` и удаление, затем добавляет установщик в предварительный релиз. Бинарник Soloist в установщик не входит.
 
 ## Исходный проект
 
-Spoty основан на [Spotsie v0.1.8](https://github.com/ahaan-shah/spotsie/tree/v0.1.8), производном от Spotifast. Авторы и условия использования указаны в [лицензии MIT](LICENSE). [Исходная документация](README.upstream.md) сохранена.
+Эта версия основана на [Spotifast](https://github.com/crmne/spotifast/tree/5286363), интеграция Soloist которого сохранена. [Лицензия MIT](LICENSE) и [документация исходного проекта](README.upstream.md) сохранены.

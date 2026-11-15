@@ -1,226 +1,216 @@
-<div align="center">
+<p align="center">
+  <img src="docs/assets/images/logo.svg" alt="Spotifast logo" width="88" height="88">
+</p>
 
-<img src="packaging/icons/spotsie.svg" width="128" alt="Spotsie icon">
+<h1 align="center">Spotifast</h1>
 
-# Spotsie
+<p align="center"><strong>Spotify, native and fast.</strong><br>A lightweight music app for Linux, macOS, and Windows.</p>
 
-**Spotify, native and light, the way Spotify looks.**
+<p align="center">
+  <a href="https://spotifast.rocks/download/"><strong>Download</strong></a> ·
+  <a href="https://spotifast.rocks/getting-started/">Getting started</a> ·
+  <a href="https://spotifast.rocks/using-spotifast/">User guide</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
 
-Your library, playlists, lyrics and Spotify Connect, in a Rust app that opens
-in a blink, plays through [librespot](https://github.com/librespot-org/librespot)
-and carries no browser engine.
+<p align="center">
+  <a href="Cargo.toml"><img src="https://img.shields.io/badge/Built_with-Rust-1ed760" alt="Built with Rust"></a>
+  <a href="https://spotifast.rocks/download/"><img src="https://img.shields.io/badge/Linux_%C2%B7_macOS_%C2%B7_Windows-24292f" alt="Linux, macOS, and Windows"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-1ed760" alt="MIT license"></a>
+</p>
 
-[Install](#install) · [Features](#features) · [Keyboard](#keyboard) · [Your data](#your-data) · [Building](#building-from-source) · [Website](https://ahaan-shah.github.io/spotsie/)
+Spotifast is a Spotify client written in Rust with
+[egui](https://www.egui.rs) and [fastframe](https://fastframe.dev), the
+framework behind a family of native desktop apps. It plays music through
+[Spotify Soloist](https://spotifast.rocks/soloist/) or the built-in
+[librespot](https://github.com/librespot-org/librespot) player, and has no browser engine.
 
-<img src="docs/screenshots/home-dark.png" alt="Spotsie's Home page, with the library sidebar and the player bar" width="900">
+The interface includes complete
+[translations for all supported languages](docs/_reference/translating.md#languages-and-coverage).
 
-</div>
+**Playback needs Spotify Premium.** Free accounts can browse and search, but
+cannot play music through Spotifast.
 
-**Spotsie needs Spotify Premium.** You sign in through a free Spotify app of
-your own, which onboarding walks you through making in about two minutes, and
-Spotify only lets Premium accounts make one. Playback needs Premium too. Spotsie is an independent project, not made
-or endorsed by Spotify.
+![Spotifast Home with the playlist library, recommendations, queue, and player visible](docs/screenshot.png)
 
-## Features
+<details>
+<summary><strong>Watch Spotifast in action</strong></summary>
 
-**It looks like Spotify.** The sidebar library, the top bar with search, the
-player bar along the bottom and the pages in between are laid out the way
-Spotify's desktop app has them, so there is nothing new to learn. It just
-opens faster and asks your computer for less.
+https://github.com/user-attachments/assets/a5f669ce-b3b7-4f8e-9933-976a78876c7e
 
-**Plays on this computer, or anywhere.**
-- Spotsie is a Spotify Connect speaker of its own, so your phone can send music to it.
-- It also controls whatever else is playing: your phone, a speaker, the kitchen.
-- Gapless playback, a ten-band equalizer, volume normalization and a choice of streaming quality.
-- Media keys, MPRIS on Linux, the macOS Now Playing widget and Windows taskbar buttons.
+</details>
 
-<img src="docs/screenshots/playlist-dark.png" alt="A playlist in Spotsie" width="900">
+[Features](#your-music-on-your-desktop) · [Install](#install) · [First playback](#start-listening) · [Mini player](#the-winamp-mini-player) · [MilkDrop](#music-in-motion) · [Help](#guides-and-help)
 
-**Your library.**
-- Playlists, albums, artists and podcasts in the sidebar, as a list or a grid, pinned and sorted your way, with folders.
-- Liked Songs, Recents and Spotify's own radio for any song, artist or playlist.
-- Create, rename and reorder playlists, change their covers, and drag songs where they belong.
-- Copy songs with `Ctrl C` and paste them into another playlist with `Ctrl V`.
+Since 0.15, setup leads with Spotify's
+[Soloist player](https://spotifast.rocks/soloist/), with guided key setup,
+one-time pairing and automatic renewal of expiring builds. New listeners and
+people updating see this choice once after sign-in on supported platforms.
+**Use the built-in player** keeps librespot, with Spotifast's EQ, visualizers,
+local files and full queue editing. The choice is remembered.
+On Linux with PipeWire, Soloist also supports Spotifast’s EQ and visualizers
+through a private audio route. [Native audio support](https://spotifast.rocks/soloist/#native-audio)
+adds EQ and visualizers on macOS 14.2 or newer, and visualizers on Windows 11,
+including MilkDrop. Windows Soloist playback does not support audible EQ.
+The Mac route keeps Soloist at full volume after redirecting its output,
+then applies Spotifast’s volume after the visualizers, including mute. Phone
+volume changes adjust that output level; Spotify’s indicator returns to 100%.
+Windows visuals keep their level as Soloist’s volume falls and stop only when it is muted.
+When enabled, Soloist appears as **This computer**; settings show the controls
+that apply to it. Turning it off restores the built-in player's preferences.
+While Soloist starts and its account is verified, the Spotify loading screen shows
+**Verifying Soloist…** and waits to accept playback commands. Setup takes three
+steps, and ends with choosing the named device in Spotify, with the built-in
+player available as a quiet alternative below the card. If Soloist stops later,
+a banner over the app says so while Spotifast restarts it, and offers **Try
+again** if that does not work. **Settings → Spotify Soloist → Spotify access**
+connects the separate Spotify session for Made for you, listening activity and
+Spotify lyrics without changing players.
 
-**Lyrics and the cover.**
-- Timed lyrics that follow the song, beside a large cover, on the cover's own colours.
-- A cover view that fills the window with the song's artwork.
-- Both go full screen. The player bar steps aside and rises again when you reach for it.
-- Lyrics come from Spotify when it has them, and from [LRCLIB](https://lrclib.net) when it doesn't.
+## Your music, on your desktop
 
-<table>
-<tr>
-<td><img src="docs/screenshots/lyrics.jpg" alt="Timed lyrics beside the cover"></td>
-<td><img src="docs/screenshots/cover.jpg" alt="The cover view"></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/queue-dark.png" alt="The queue beside Home"></td>
-<td><img src="docs/screenshots/home-light.png" alt="Home in Spotsie Light"></td>
-</tr>
-</table>
-
-**The queue.** Spotify's queue rules, kept exactly: what you add plays next, in
-order, before the rest of the album or playlist. Drag to reorder, and see what
-plays after.
-
-**Search.** Songs, artists, albums, playlists and podcasts, as you type, with a
-top result. `Ctrl F` or `/` from anywhere.
-
-<img src="docs/screenshots/search-dark.png" alt="Search results" width="900">
-
-**Everything else.**
-- 11 themes, Spotsie Light and Dark plus Catppuccin (Latte and Mocha), Rosé Pine (Dawn and night), Flexoki, Nord, Tokyo Night, Everforest and Gruvbox, that crossfade when you switch. Or let it follow your system, including Omarchy's colours.
-- 9 bundled interface fonts, including JetBrains Mono for a monospaced look, so it looks the same everywhere and works offline.
-- Calm motion: hovers fade, panels slide, pages rise into place.
-- A `spotsie` command that controls the running app, for scripts, launchers and Stream Deck.
-- Screen-reader labels and full keyboard control.
-- Updates itself: a quiet **Update available** appears in the top bar, and nothing happens until you click it.
-
-<img src="docs/screenshots/settings-light.png" alt="Settings in Spotsie Light" width="900">
+| Feature | What you can do |
+|---|---|
+| **Library and search** | Browse playlists, Liked Songs, albums, artists, and podcasts. Discover upcoming albums on artist pages and open their countdown to pre-save. Search the catalogue and edit playlists you own. Copy a song's link, title, or artists from its menu. |
+| **Local files** | Play the local files your playlists list from a folder you choose in Settings, at any sample rate. Names show spaces and accents correctly, including in cached playlists. |
+| **Lyrics** | Spotify lyrics when the playback session is signed in, with LRCLIB as fallback. Temporary LRCLIB overloads retry and try search; older cached lyrics remain available during outages. |
+| **Spotify Connect** | Play on this computer or control playback on your other devices, including Google Cast speakers and groups. Cast devices appear as they are discovered; frequently and recently chosen outputs rise to the top. Remote volume keeps your chosen level while Spotify updates. |
+| **Queue** | Add songs to the queue, or choose **Play next** to put a song or selection first when playing on this computer. |
+| **Themes** | Choose light, dark, system appearance, or custom colours, with one theme for light mode and one for dark mode that switch with the system. On Omarchy, follow your desktop theme, in the panel, selection and muted shades each theme defines ([details](https://spotifast.rocks/settings-and-files/#follow-an-omarchy-theme)). |
+| **Desktop controls** | Use keyboard shortcuts and media keys. Keep music playing from the tray when supported by your desktop and settings, and start Spotifast with your computer, with its window or in the tray. |
+| **Winamp mini player** | Use classic skins with an equalizer, playlist, and animated sound displays. |
+| **MilkDrop** | Watch music-reactive visuals in a separate window or full screen. See platform availability below. |
 
 ## Install
 
-### Linux & macOS (one line)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ahaan-shah/spotsie/main/install.sh | sh
-```
-
-What the script does on each platform:
-- **Linux:** installs Spotsie into `~/.local/lib/spotsie`, links `spotsie` into `~/.local/bin`, and adds a desktop entry and icon so Spotsie shows up in your app launcher. x86-64 and ARM64.
-- **macOS:** installs `Spotsie.app` (universal, Apple Silicon + Intel) into `/Applications`.
-
-The script checks every download against the release's `checksums.txt`. To pin
-a version, set `SPOTSIE_VERSION=0.1.1`.
-
-The app isn't notarized yet. If macOS refuses to open it the first time,
-right-click the app and choose **Open**, or run
-`xattr -dr com.apple.quarantine /Applications/Spotsie.app`.
-
-### Windows (one line)
-
-In PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/ahaan-shah/spotsie/main/install.ps1 | iex
-```
-
-This installs Spotsie just for you (no admin prompt) into
-`%LOCALAPPDATA%\Programs\Spotsie` and adds it to the Start menu, on x64 and
-ARM64 PCs. To pin a version, run `$env:SPOTSIE_VERSION = "0.1.1"` first.
-
-Prefer a regular installer? Download
-[`spotsie-setup.exe`](https://github.com/ahaan-shah/spotsie/releases/latest/download/spotsie-setup.exe)
-and run it. It isn't code-signed yet, so SmartScreen may say "Windows protected
-your PC". Click **More info**, then **Run anyway**.
-
-### Other downloads
-
-The [latest release](https://github.com/ahaan-shah/spotsie/releases/latest)
-also has portable archives (`.tar.gz` for Linux x86-64 and ARM64, `.zip` for
-Windows x64 and ARM64), the Windows installers, and the macOS disk image.
-
-**Uninstall:** on Linux and macOS, run the install line with
-`sh -s -- --uninstall` in place of `sh`. On Windows, use **Settings → Apps**.
-Your settings and sign-in are kept either way.
-
-## Keyboard
-
-| Keys | Does |
+| Platform | Installation |
 |---|---|
-| `Space` | Play or pause |
-| `Ctrl ←` / `Ctrl →` | Previous / next |
-| `Shift ←` / `Shift →` | Seek 10 seconds |
-| `Ctrl ↑` / `Ctrl ↓` | Volume |
-| `M` · `B` | Mute · like the playing song |
-| `S` / `R` | Shuffle / cycle repeat |
-| `Q` | Queue |
-| `Ctrl F` or `/` | Search |
-| `Ctrl B` | Show or hide the sidebar |
-| `Alt ←` / `Alt →` | Back / forward |
-| `Ctrl H` / `Ctrl L` | Home / Liked Songs |
-| `Ctrl A` · `Ctrl C` · `Ctrl V` | Select all songs · copy their links · paste them into your playlist |
-| `Ctrl ,` | Settings |
-| `Ctrl /` or `?` | All shortcuts |
+| **macOS** | `brew install --cask crmne/tap/spotifast`, or [download the Mac app](https://spotifast.rocks/download/#macos). |
+| **Arch Linux** | `yay -S spotifast-bin` |
+| **Windows** | The installer or a portable ZIP, for x64 and ARM, from the [Download page](https://spotifast.rocks/download/#windows). |
+| **Debian, Ubuntu** | The [DEB package](https://spotifast.rocks/download/#debian-and-ubuntu), then `sudo apt install ./spotifast_*.deb` |
+| **Fedora** | The [RPM package](https://spotifast.rocks/download/#fedora), then `sudo dnf install ./spotifast-*.rpm` |
+| **Other Linux** | Find Flatpak, AppImage, Nix, and other options on the [Download page](https://spotifast.rocks/download/#linux). |
+| **From source** | Follow [Build from source](https://spotifast.rocks/getting-started/#build-from-source) for dependencies and commands. |
 
-On macOS, use `Cmd` instead of `Ctrl`.
+## Start listening
 
-### From the command line
+1. Register Spotifast with Spotify, as the sign-in screen shows: in the
+   [Spotify developer dashboard](https://developer.spotify.com/dashboard),
+   click **Create app**, Spotify's name for this registration, with the
+   redirect URI `http://127.0.0.1:8989/login` and **Web API** ticked. It takes
+   about two minutes and gives you a Client ID. Spotify requires Premium on the
+   account that registers, so a Free account can't do this step itself.
+   [Getting started](https://spotifast.rocks/getting-started/#make-a-spotify-app)
+   has the steps.
+2. Paste the Client ID into Spotifast and choose **Sign in with Spotify**.
+   Approve access in your browser, then return to the app to see your library.
+3. To listen on this computer, open the device menu in the bottom player bar
+   and choose **Set up playback here**, also available in Settings.
+4. Complete the separate playback approval in your browser. Your computer
+   appears as a Spotify Connect device named **Spotifast**.
 
-The `spotsie` command controls the copy that's already running:
+Library access and local playback have separate approvals. Spotifast remembers
+both using your computer's protected storage. See
+[Getting started](https://spotifast.rocks/getting-started/) for the full walkthrough
+and [How it connects](https://spotifast.rocks/how-it-connects/) for the details.
 
-```
-spotsie play-pause          spotsie volume 40
-spotsie next                spotsie shuffle on
-spotsie like                spotsie play-uri spotify:playlist:37i9…
-spotsie now-playing         spotsie devices
-```
+## The Winamp mini player
 
-See [Everyday use](docs/_guide/using-spotsie.md#controlling-it-from-the-command-line) for every verb.
+A classic look for your music, with Winamp 2 `.wsz` and Windows Media Player `.wmz` skins, an equalizer,
+a playlist, and animated sound displays. Switch with **Ctrl+M**
+(**Cmd+Shift+M** on macOS), the shrink button, or Settings.
+The spectrum analyser and oscilloscope also work in the collapsed title bar.
 
-## Your data
+<p align="center">
+  <img src="docs/assets/images/winamp.png" alt="Spotifast's Winamp mini player with the built-in skin, equalizer, and playlist" width="320">
+</p>
 
-There's no Spotsie account, no telemetry and no hosted service. Spotsie talks
-to Spotify, and to three other places, each for one thing:
+[Explore the mini player](https://spotifast.rocks/winamp/), including skins,
+window sizes, controls, and the return to the main player.
 
-- **Spotify**, for your library, search and playback, signed in with Spotify's own login page through your own free Spotify app, which onboarding helps you make. Sign-ins live in your system's keyring.
-- **[LRCLIB](https://lrclib.net)**, for lyrics when Spotify has none: the song's artist, title, album and length, nothing about you.
-- **GitHub**, once on each launch, to see whether a newer Spotsie exists. Updates are only downloaded when you click **Update available**.
-- **Your local network**, to find Spotify Connect speakers.
+## Music in motion
 
-| | Linux | macOS | Windows |
-|---|---|---|---|
-| Settings | `~/.config/spotsie/` | `~/Library/Application Support/io.github.ahaan-shah.spotsie/` | `%APPDATA%\ahaan-shah\spotsie\config\` |
-| State & logs | `~/.local/state/spotsie/` | (same as settings) | `%LOCALAPPDATA%\ahaan-shah\spotsie\data\` |
-| Caches | `~/.cache/spotsie/` | `~/Library/Caches/io.github.ahaan-shah.spotsie/` | `%LOCALAPPDATA%\ahaan-shah\spotsie\cache\` |
+MilkDrop reacts to music playing on this computer, with more than 10,000
+presets downloaded on first use. Open it from the visualiser button,
+Settings, or the mini player's **V** menu.
 
-Clearing the caches never signs you out. [Settings and files](docs/_reference/settings-and-files.md)
-and [Privacy](docs/_reference/privacy.md) have the details, and
-[How it connects](docs/_reference/how-it-connects.md) lists every request.
+![MilkDrop visualiser displaying coloured concentric patterns in Spotifast](docs/assets/images/milkdrop-poster.jpg)
 
-Want to look around first? `spotsie --demo` (in a build with the `demo`
-feature) opens a sample library that needs no Spotify account.
+Included on **Linux**, **macOS**, and **Windows Intel/AMD** builds.
+It is not included in the Windows on ARM download.
+[Read the MilkDrop guide](https://spotifast.rocks/milkdrop/) for presets,
+controls, and fullscreen mode.
 
-## Building from source
+## Guides and help
 
-```bash
-git clone https://github.com/ahaan-shah/spotsie.git
-cd spotsie
-cargo run --release
-```
+The complete guide lives at **[spotifast.rocks](https://spotifast.rocks/)**.
 
-Rust 1.98+ is required. On Arch Linux, first run
-`sudo pacman -S --needed base-devel alsa-lib libpulse libxkbcommon wayland`;
-other systems are in [Build from source](docs/_guide/getting-started.md#build-from-source).
-`scripts/install.sh` builds the checkout and installs it for your user.
+| You want to… | Read |
+|---|---|
+| Sign in, set up playback, or configure themes, fonts, and proxies | [Getting started](https://spotifast.rocks/getting-started/) |
+| Learn shortcuts, command-line controls, and updates | [Everyday use](https://spotifast.rocks/using-spotifast/) |
+| Check storage sizes, clear cached audio and find stored files | [Settings and files](https://spotifast.rocks/settings-and-files/) |
+| Understand scrolling performance and reduce loading delays | [Make it even faster](https://spotifast.rocks/make-it-even-faster/) |
+| Fix "Spotify refused the audio key" or "Spotify is being slow" | [When something goes wrong](https://spotifast.rocks/troubleshooting/) |
+| Understand what is stored and sent | [Privacy](https://spotifast.rocks/privacy/) · [How it connects](https://spotifast.rocks/how-it-connects/) |
+| Check Spotify and librespot limitations | [What Spotify allows](https://spotifast.rocks/what-spotify-allows/) |
+| Is it safe for my account? | [Account safety](https://spotifast.rocks/what-is-spotifast/#account-safety) |
+| Report a bug or propose a feature | Read [Contributing](CONTRIBUTING.md), then use the [issue forms](https://github.com/crmne/spotifast/issues/new/choose). |
 
-To look at the interface without a Spotify account:
+## Contributing
 
-```bash
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull
+request. To look at the interface without a Spotify account, run:
+
+```sh
 cargo run --features demo -- --demo
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the project's checks and layout, and
-[AGENTS.md](AGENTS.md) for coding agents.
+Translations live in `assets/i18n/`; see
+[Translating Spotifast](docs/_reference/translating.md). Release packaging
+is described in [PACKAGING.md](PACKAGING.md).
 
-## Credits
+## More native apps
 
-Spotsie started from the code of [Spotifast](https://github.com/crmne/spotifast)
-by [Carmine Paolino](https://github.com/crmne) (MIT). Its sign-in, playback,
-Spotify Connect, Web API, settings and storage are Spotifast's proven backend;
-the interface is Spotsie's own. Thank you, Carmine.
+**Want WhatsApp just as fast and native?** [ZapFast](https://zapfast.rocks)
+is Spotifast's sibling. Both are built on
+[fastframe](https://fastframe.dev).
 
-Spotsie also stands on [librespot](https://github.com/librespot-org/librespot),
-[egui](https://github.com/emilk/egui), the [Inter](https://rsms.me/inter/) typeface and
-other bundled fonts (OFL), and [Lucide](https://lucide.dev) icons (ISC).
-Lyrics come from Spotify and [LRCLIB](https://lrclib.net).
+## Spotify Connect updates
 
-Music, artwork, metadata and lyrics belong to their owners and come from
-**Spotify**, through your own account. Spotify is a trademark of Spotify AB.
-Spotsie is an independent project and is not affiliated with, endorsed by or
-sponsored by Spotify.
+With local playback enabled, Spotify pushes changes from other devices over
+Spotifast's existing Connect session. Playback changes trigger a refresh.
+Volume-only changes appear directly for the active playback device without
+an extra request; an unconfirmed volume change made in Spotifast takes
+precedence. Push-triggered refreshes are at least a second apart and wait for
+a pending playback read to finish. Changes received during that read are
+folded into one follow-up.
+Connect pushes are ignored when this computer is the active device both
+before and after; position-only updates cause no requests. Regular polling
+remains the fallback.
 
-## License
+## Sonos playback
 
-[MIT](LICENSE). The bundled fonts and icons keep their own licenses, next to
-them in [`assets/`](assets).
+Sonos speakers use the Spotify Connect session for playback control. Enable
+local playback first, then select the speaker in the device picker.
+
+## Acknowledgements
+
+Spotifast uses [librespot](https://github.com/librespot-org/librespot),
+[egui](https://www.egui.rs), [fastframe](https://fastframe.dev), the [Inter](https://rsms.me/inter/)
+typeface (OFL), and [Lucide](https://lucide.dev) icons (ISC).
+
+Spotifast is an independent project and is not affiliated with Spotify.
+Spotify is a trademark of Spotify AB.
+
+Licensed under the [MIT License](LICENSE).
+
+## Star history
+
+<a href="https://www.star-history.com/?repos=crmne%2Fspotifast&amp;type=date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=crmne/spotifast&amp;type=date&amp;theme=dark">
+    <img alt="Spotifast GitHub stars over time" src="https://api.star-history.com/chart?repos=crmne/spotifast&amp;type=date">
+  </picture>
+</a>
