@@ -40,11 +40,20 @@ jobs:
           $binary = Join-Path $installed 'spoty.exe'
           $source = Join-Path $PWD 'target\x86_64-pc-windows-msvc\release\spoty.exe'
           if ((Get-FileHash $binary).Hash -ne (Get-FileHash $source).Hash) { throw 'The installed program does not match the build' }
+          $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+          $launchCommand = '"' + $binary + '" --start-hidden'
+          if ((Get-ItemProperty $runKey -Name Spoty).Spoty -ne $launchCommand) { throw 'Spoty was not added to startup' }
           $client = Start-Process $binary -ArgumentList '--version' -PassThru -Wait
           if ($client.ExitCode -ne 0) { throw "Spoty exited with $($client.ExitCode)" }
+          Remove-ItemProperty $runKey -Name Spoty
+          $result = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru -Wait
+          if ($result.ExitCode -ne 0) { throw "Update exited with $($result.ExitCode)" }
+          if ((Get-ItemProperty $runKey).PSObject.Properties.Name -contains 'Spoty') { throw 'Setup re-enabled startup after the user disabled it' }
+          New-ItemProperty $runKey -Name Spoty -Value $launchCommand -PropertyType String | Out-Null
           $uninstall = Join-Path $installed 'unins000.exe'
           $result = Start-Process $uninstall -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru -Wait
           if ($result.ExitCode -ne 0 -or (Test-Path $binary)) { throw 'Uninstall failed' }
+          if ((Get-ItemProperty $runKey).PSObject.Properties.Name -contains 'Spoty') { throw 'Uninstall left a startup entry behind' }
           "$( (Get-FileHash $setup).Hash.ToLowerInvariant() )  Spoty-Setup-x64.exe" | Set-Content -Encoding ascii dist\SHA256SUMS.txt
       - uses: actions/upload-artifact@v6
         with:
@@ -69,4 +78,4 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/Spoty-Setup-x64.exe dist/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease --title "Spoty Windows x64 preview" \
-            --notes "Windows 10/11 x64. Adds a resizable Now playing sidebar with artwork, title, artist and album. Preserves the Spotify Soloist setup from 0.2.0. Unsigned preview based on Spotifast (MIT)."
+            --notes "Windows 10/11 x64. Setup enables Spoty startup in the system tray and preserves the startup preference on updates. Unsigned preview based on Spotifast (MIT)."
