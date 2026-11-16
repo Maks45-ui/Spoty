@@ -12,7 +12,7 @@ use crate::util;
 use super::widgets::{PlaylistChecks, SliderEvent, thin_slider};
 
 /// How much of the playing art's tint the bar's fill carries.
-const TINT_STRENGTH: f32 = 0.12;
+const TINT_STRENGTH: f32 = 0.18;
 /// How long the bar takes to cross over to a new song's tint.
 const TINT_FADE_SECONDS: f32 = 0.45;
 const TINT_SESSION_ID: &str = "player-bar-tint-session";
@@ -703,8 +703,9 @@ fn now_playing_block(app: &mut App, ui: &mut egui::Ui, region: Rect, now: Option
 }
 
 /// The transport's button widths: icon buttons occupy icon size + 12; the
-/// disc is 36.
-const TRANSPORT_WIDTHS: [f32; 5] = [29.0, 30.0, 36.0, 30.0, 29.0];
+/// disc is the same size in both playback and loading states.
+const PLAY_DISC_SIZE: f32 = 40.0;
+const TRANSPORT_WIDTHS: [f32; 5] = [29.0, 30.0, PLAY_DISC_SIZE, 30.0, 29.0];
 const TRANSPORT_GAP: f32 = 10.0;
 
 /// The transport's buttons from Shuffle to Repeat, centred in the bar.
@@ -718,11 +719,7 @@ fn transport(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, region:
     // centre each widget in the row height known when it is added, which
     // left earlier icons riding high next to the play disc.
     //
-    // The buttons row (36) and the progress row (~15, after a 6px gap) form
-    // one cluster, centred as a group in the 88px bar: the buttons sit 8px
-    // above the bar's midline and the progress row 23px below it. Measured
-    // on screen this puts equal breathing room above and beneath the
-    // cluster.
+    // Centre the transport and progress together in the 88-point bar.
     let cy = region.center().y - 8.0;
     let enabled = now.is_some_and(|now| now.can_control) || app.is_connected();
     let playing = now.is_some_and(|now| now.playing);
@@ -738,7 +735,7 @@ fn transport(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, region:
     let widths = TRANSPORT_WIDTHS;
     let mut x = region.center().x - transport_width() / 2.0;
     let mut slot = |width: f32| {
-        let rect = Rect::from_center_size(pos2(x + width / 2.0, cy), vec2(width, 36.0));
+        let rect = Rect::from_center_size(pos2(x + width / 2.0, cy), vec2(width, PLAY_DISC_SIZE));
         x += width + TRANSPORT_GAP;
         rect
     };
@@ -795,9 +792,9 @@ fn transport(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, region:
         let mut cell = centered(ui, disc);
         theme::circle_spinner(
             &mut cell,
-            36.0,
-            palette.text,
-            palette.window,
+            PLAY_DISC_SIZE,
+            palette.accent,
+            palette.on_accent,
             &gettext(app.locale, "Loading…"),
         );
     } else {
@@ -806,19 +803,14 @@ fn transport(app: &mut App, ui: &mut egui::Ui, now: Option<&NowPlaying>, region:
         } else {
             Icon::PlayFilled
         };
-        let hover = if palette.dark {
-            egui::Color32::WHITE
-        } else {
-            palette.text
-        };
         let mut cell = centered(ui, disc);
         if theme::circle_button(
             &mut cell,
             icon,
-            36.0,
-            palette.text,
-            hover,
-            palette.window,
+            PLAY_DISC_SIZE,
+            palette.accent,
+            palette.accent_hover,
+            palette.on_accent,
             &if playing {
                 gettext(app.locale, "Pause")
             } else {
