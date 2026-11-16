@@ -66,6 +66,10 @@ pub(super) fn side_panel(app: &mut App, ui: &mut egui::Ui) {
             .show(ui, |ui| {
                 if let Some(now) = app.now_playing() {
                     track(app, ui, &now);
+                    if !now.is_episode {
+                        ui.add_space(12.0);
+                        super::lyrics::now_playing_card(app, ui, &now);
+                    }
                 } else {
                     Frame::new()
                         .fill(palette.surface)

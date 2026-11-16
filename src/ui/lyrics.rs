@@ -2,7 +2,7 @@
 
 use egui::{Align, Color32, Frame, Layout, Margin, Rect, Sense, UiBuilder, pos2, vec2};
 
-use crate::app::App;
+use crate::app::{App, NowPlaying};
 use crate::i18n::{gettext, pgettext};
 use crate::model::{Action, Loadable};
 use crate::theme::{self, Icon};
@@ -138,6 +138,66 @@ fn contents(app: &mut App, ui: &mut egui::Ui) {
         );
         return;
     };
+    lyrics_text(app, ui, &now, false);
+}
+
+pub(super) fn now_playing_card(app: &mut App, ui: &mut egui::Ui, now: &NowPlaying) {
+    if app.lyrics_uri.as_deref() != Some(now.uri.as_str())
+        || matches!(app.lyrics, Loadable::NotLoaded)
+    {
+        app.request_lyrics();
+    }
+    let palette = app.palette;
+    Frame::new()
+        .fill(palette.surface)
+        .stroke(egui::Stroke::new(1.0, palette.outline))
+        .corner_radius(14)
+        .inner_margin(Margin::same(14))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            egui::Sides::new().shrink_left().show(
+                ui,
+                |ui| {
+                    theme::text(
+                        ui,
+                        gettext(app.locale, "Lyrics"),
+                        theme::bold(16.0),
+                        palette.text,
+                    );
+                },
+                |ui| {
+                    if theme::icon_button(
+                        ui,
+                        Icon::Expand,
+                        18.0,
+                        palette.secondary,
+                        palette.text,
+                        &gettext(app.locale, "Full screen lyrics"),
+                    )
+                    .clicked()
+                    {
+                        app.actions.push(Action::SetLyricsFullscreen(true));
+                    }
+                    if matches!(&app.lyrics, Loadable::Loaded(Some(lyrics)) if lyrics.synced)
+                        && !app.lyrics_following
+                        && theme::pill_button(
+                            ui,
+                            &palette,
+                            &pgettext(app.locale, "lyrics", "Follow"),
+                            false,
+                        )
+                        .clicked()
+                    {
+                        app.actions.push(Action::FollowLyrics);
+                    }
+                },
+            );
+            lyrics_text(app, ui, now, true);
+        });
+}
+
+fn lyrics_text(app: &mut App, ui: &mut egui::Ui, now: &NowPlaying, in_card: bool) {
+    let palette = app.palette;
     let lyrics = match &app.lyrics {
         Loadable::NotLoaded | Loadable::Loading => {
             if !app.network_reachable {
@@ -205,7 +265,7 @@ fn contents(app: &mut App, ui: &mut egui::Ui) {
             );
             return;
         }
-        Loadable::Loaded(Some(lyrics)) => lyrics.clone(),
+        Loadable::Loaded(Some(lyrics)) => lyrics,
     };
 
     let active = lyrics.active_line(now.position_ms);
@@ -213,12 +273,20 @@ fn contents(app: &mut App, ui: &mut egui::Ui) {
     // The line being sung is bold and in the accent colour; every other
     // line is quiet, regular text, the same before and after it has been
     // sung. A line takes 220 ms to light up or fade, as in omarchy-lyrics.
-    let quiet = palette.text.gamma_multiply(0.45);
+    let quiet = if in_card {
+        palette.secondary
+    } else {
+        palette.text.gamma_multiply(0.45)
+    };
+    let mut area = egui::ScrollArea::vertical()
+        .id_salt("lyrics-scroll")
+        .auto_shrink([false, in_card]);
+    if in_card {
+        area = area.max_height(240.0);
+    }
     let scroll = crate::autoscroll::show(
         ui,
-        egui::ScrollArea::vertical()
-            .id_salt("lyrics-scroll")
-            .auto_shrink([false, false]),
+        area,
         egui::Vec2b::new(false, true),
         |ui| {
             // Before the first line there is nothing to highlight, so the
@@ -234,7 +302,7 @@ fn contents(app: &mut App, ui: &mut egui::Ui) {
             for (index, line) in lyrics.lines.iter().enumerate() {
                 let is_active = active == Some(index);
                 let lit = ui.ctx().animate_bool_with_time(
-                    egui::Id::new("lyric-line").with(index),
+                    ui.id().with(("lyric-line", index)),
                     is_active,
                     crate::motion::seconds(ui.ctx(), LIGHT_UP_SECONDS),
                 );
@@ -288,7 +356,7 @@ fn contents(app: &mut App, ui: &mut egui::Ui) {
             }
             // Words without timing can only be followed by the clock: sit
             // at the part of the text the song is probably at.
-            if app.lyrics_following && !lyrics.synced && now.duration_ms > 0 {
+            if !in_card && app.lyrics_following && !lyrics.synced && now.duration_ms > 0 {
                 let fraction =
                     (f64::from(now.position_ms) / f64::from(now.duration_ms)).clamp(0.0, 1.0);
                 let content = ui.min_rect();
@@ -302,7 +370,9 @@ fn contents(app: &mut App, ui: &mut egui::Ui) {
                 );
             }
             // Room for the last line to rise to where a sung line sits.
-            ui.add_space((ui.clip_rect().height() * (1.0 - SUNG_LINE_AT)).max(60.0));
+            if lyrics.synced || !in_card {
+                ui.add_space((ui.clip_rect().height() * (1.0 - SUNG_LINE_AT)).max(60.0));
+            }
         },
     );
     crate::autoscroll::lyrics(ui, scroll.id);
