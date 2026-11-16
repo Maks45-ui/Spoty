@@ -37,6 +37,30 @@ use crate::backend::AuthStatus;
 use crate::model::{Action, Loadable, Page, ToastKind};
 use crate::theme::{self, Icon};
 
+pub(super) enum PanelSide {
+    Left,
+    Right,
+    Bottom,
+}
+
+/// Give the shared edge a gutter and keep the outline readable across themes.
+pub(super) fn panel_frame(app: &App, frame: Frame, side: PanelSide) -> Frame {
+    if !app.settings.separate_panels {
+        return frame;
+    }
+    let mut gap = Margin::same(0);
+    match side {
+        PanelSide::Left => gap.right = 6,
+        PanelSide::Right => gap.left = 6,
+        PanelSide::Bottom => gap.top = 6,
+    }
+    let palette = app.palette;
+    frame
+        .outer_margin(gap)
+        .corner_radius(9)
+        .stroke(Stroke::new(1.0, blend(palette.outline, palette.secondary, 0.28)))
+}
+
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let ctx = ui.ctx().clone();
     let ctx = &ctx;

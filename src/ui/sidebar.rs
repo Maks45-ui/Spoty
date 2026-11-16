@@ -548,7 +548,11 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let top = 12
         + theme::titlebar_inset(ui.ctx()) as i8
         + super::linux_left_controls_inset(ui.ctx()) as i8;
-    let beside = if app.show_queue_panel || app.show_lyrics_panel || app.show_friends_panel {
+    let beside = if app.show_queue_panel
+        || app.show_lyrics_panel
+        || app.show_friends_panel
+        || app.now_playing_panel_visible()
+    {
         theme::SIDE_PANEL_MIN_WIDTH
     } else {
         0.0
@@ -565,12 +569,16 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         .default_size(app.settings.sidebar_width)
         .size_range(fit.range.clone())
         .show_separator_line(false)
-        .frame(Frame::new().fill(palette.panel).inner_margin(Margin {
-            left: 12,
-            right: 8,
-            top,
-            bottom: if expanded_art { 0 } else { 8 },
-        }));
+        .frame(super::panel_frame(
+            app,
+            Frame::new().fill(palette.panel).inner_margin(Margin {
+                left: 12,
+                right: 8,
+                top,
+                bottom: if expanded_art { 0 } else { 8 },
+            }),
+            super::PanelSide::Left,
+        ));
     let response = panel.show(ui, |ui| {
         let art_rect = expanded_art.then(|| expanded_art_rect(ui));
         if let Some(rect) = art_rect.filter(|_| !floating_art) {

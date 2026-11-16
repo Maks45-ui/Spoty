@@ -23,11 +23,13 @@ pub(super) fn side_panel(app: &mut App, ui: &mut egui::Ui) {
         .default_size(app.settings.queue_width)
         .size_range(fit.range.clone())
         .show_separator_line(false)
-        .frame(
+        .frame(super::panel_frame(
+            app,
             Frame::new()
                 .fill(palette.panel)
                 .inner_margin(Margin::symmetric(16, 12)),
-        );
+            super::PanelSide::Right,
+        ));
     let response = panel.show(ui, |ui| {
         let controls =
             super::window_controls_reservation(ui.ctx(), true, false, ui.available_width());

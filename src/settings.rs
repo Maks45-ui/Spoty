@@ -324,6 +324,7 @@ pub struct Settings {
     pub volume: u16,
     /// Whether the library sidebar is visible.
     pub sidebar_visible: bool,
+    pub separate_panels: bool,
     /// The playing album's art docked large at the sidebar's bottom.
     pub art_expanded: bool,
     /// Use compact single-line rows without cover art in the sidebar.
@@ -513,6 +514,7 @@ impl Default for Settings {
             visualizer_fps: crate::milkdrop::DEFAULT_FPS,
             volume: (u16::MAX as u32 * 70 / 100) as u16,
             sidebar_visible: true,
+            separate_panels: true,
             art_expanded: false,
             sidebar_compact: false,
             sidebar_grid: false,

@@ -1235,6 +1235,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let themes_folder = gettext(locale, "Open themes folder");
     let accent_from_art = gettext(locale, "Colour from album art");
     let sidebar_compact = gettext(locale, "Compact library sidebar");
+    let separate_panels = gettext(locale, "Separate panels");
     let tracklist_compact = gettext(locale, "Compact track list");
     let middle_click = gettext(locale, "Middle-click autoscroll");
     let custom_titlebar = gettext(locale, "Custom title bar");
@@ -1356,6 +1357,10 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         ),
         pair_row(fastframe_theme::Base::Light),
         pair_row(fastframe_theme::Base::Dark),
+        RowText::new(
+            separate_panels.clone(),
+            gettext(locale, "Add spacing and outlines between the library, side panels and player."),
+        ),
     ];
     for index in [8, 9, 10] {
         appearance_rows[index].available &= visualizers;
@@ -1678,6 +1683,22 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     },
                 );
             }
+            filtered_row(
+                ui,
+                &palette,
+                &needle,
+                &appearance,
+                &appearance_rows[13],
+                |ui| {
+                    changed |= widgets::switch(
+                        ui,
+                        &palette,
+                        &separate_panels,
+                        &mut app.settings.separate_panels,
+                    )
+                    .changed();
+                },
+            );
             if show_custom_titlebar {
                 filtered_row(
                     ui,

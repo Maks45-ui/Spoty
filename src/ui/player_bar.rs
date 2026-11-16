@@ -50,11 +50,13 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         .exact_size(theme::PLAYER_BAR_HEIGHT)
         .resizable(false)
         .show_separator_line(false)
-        .frame(
+        .frame(super::panel_frame(
+            app,
             Frame::new()
                 .fill(fill)
                 .inner_margin(Margin::symmetric(16, 0)),
-        )
+            super::PanelSide::Bottom,
+        ))
         .show(ui, |ui| {
             let rect = ui.max_rect();
             let now = app.now_playing();
@@ -87,11 +89,13 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     app.actions.push(Action::CyclePlayerBarVis);
                 }
             }
-            ui.painter().hline(
-                rect.x_range(),
-                rect.top() + 0.5,
-                egui::Stroke::new(1.0, palette.outline),
-            );
+            if !app.settings.separate_panels {
+                ui.painter().hline(
+                    rect.x_range(),
+                    rect.top() + 0.5,
+                    egui::Stroke::new(1.0, palette.outline),
+                );
+            }
             let width = rect.width();
             let side = (width * 0.3).clamp(200.0, 420.0);
             let cy = rect.center().y;
