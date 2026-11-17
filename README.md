@@ -23,7 +23,7 @@ Spoty работает в собственном окне и воспроизв�
 
 ## Установка
 
-Нужны **Windows 10 или 11 x64**, **Spotify Premium**, личный **Client ID** и личный **Soloist API Key**. Для загрузки установщика нужен доступ к этому приватному репозиторию. Установщик без цифровой подписи.
+Нужны **Windows 10 или 11 x64**, **Spotify Premium**, личный **Client ID** и личный **Soloist API Key**. Установщик без цифровой подписи.
 
 1. Скачай [Spoty-Setup-x64.exe](https://github.com/Maks45-ui/Spoty/releases/latest/download/Spoty-Setup-x64.exe) и запусти его.
 2. При первом входе создай приложение с **Web API** в [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). Укажи Redirect URI `http://127.0.0.1:8989/login` и введи его **Client ID** в Spoty.
