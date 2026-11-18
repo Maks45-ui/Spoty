@@ -1573,7 +1573,7 @@ impl App {
     pub fn attach(&mut self, ctx: &egui::Context) {
         theme::install(ctx);
         if let Some(photo) = &mut self.background_photo {
-            photo.texture = None;
+            photo.forget_textures();
         }
         ctx.add_bytes_loader(std::sync::Arc::new(self.backend.art().clone()));
         ctx.add_image_loader(std::sync::Arc::new(self.backend.art().scaler()));

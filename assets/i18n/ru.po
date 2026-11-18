@@ -4724,7 +4724,10 @@ msgid "Choose photo"
 msgstr "Выбрать фото"
 
 msgid "Photo opacity"
-msgstr "Прозрачность фото"
+msgstr "Видимость фото"
+
+msgid "Photo blur"
+msgstr "Размытие фото"
 
 msgid "Use my palette"
 msgstr "Моя палитра"

@@ -8,18 +8,31 @@ use crate::i18n::gettext;
 use crate::model::Action;
 use crate::theme::{self, Icon, Palette};
 
-pub(super) fn paint_background(app: &mut App, ui: &egui::Ui, rect: Rect) -> bool {
-    let opacity = app.settings.background_opacity.clamp(0.0, 0.65);
-    let Some(photo) = app.background_photo.as_mut().filter(|_| opacity > 0.0) else {
-        return false;
+pub(super) fn background_visible(app: &App) -> bool {
+    app.background_photo.is_some()
+        && app.settings.background_opacity > 0.0
+        && app.lyrics_fullscreen.is_none()
+        && !app.immersive()
+}
+
+pub(super) fn paint_background(app: &mut App, ui: &egui::Ui) {
+    if !background_visible(app) {
+        return;
+    }
+    let Some(photo) = &mut app.background_photo else {
+        return;
     };
-    let texture = photo.texture(ui.ctx());
-    let uv = super::lyrics::cover_uv(rect.size(), texture.size_vec2());
-    ui.painter().image(texture.id(), rect, uv, Color32::WHITE);
-    let [red, green, blue, _] = app.palette.window.to_srgba_unmultiplied();
-    let wash = Color32::from_rgba_unmultiplied(red, green, blue, ((1.0 - opacity) * 255.0) as u8);
-    ui.painter().rect_filled(rect, 0, wash);
-    true
+    let opacity = app.settings.background_opacity.clamp(0.0, 1.0);
+    let (texture, size) = photo.backdrop(ui.ctx(), app.settings.background_blur.min(100));
+    let rect = ui.max_rect();
+    let uv = super::lyrics::cover_uv(rect.size(), size);
+    ui.painter().rect_filled(rect, 0, app.palette.window);
+    ui.painter().image(
+        texture,
+        rect,
+        uv,
+        Color32::from_white_alpha((opacity * 255.0).round() as u8),
+    );
 }
 
 type ColorField = fn(&mut Palette) -> &mut Color32;
@@ -51,7 +64,7 @@ pub(super) fn editor(app: &mut App, ui: &mut egui::Ui) {
         let mut percent = (app.settings.background_opacity * 100.0).round();
         if ui
             .add(
-                egui::Slider::new(&mut percent, 0.0..=65.0)
+                egui::Slider::new(&mut percent, 0.0..=100.0)
                     .text(gettext(locale, "Photo opacity").as_ref())
                     .integer()
                     .suffix("%"),
@@ -61,6 +74,13 @@ pub(super) fn editor(app: &mut App, ui: &mut egui::Ui) {
             app.settings.background_opacity = percent / 100.0;
             changed = true;
         }
+        changed |= ui
+            .add(
+                egui::Slider::new(&mut app.settings.background_blur, 0..=100)
+                    .text(gettext(locale, "Photo blur").as_ref())
+                    .suffix("%"),
+            )
+            .changed();
     }
 
     ui.add_space(12.0);

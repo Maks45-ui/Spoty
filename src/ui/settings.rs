@@ -1726,6 +1726,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let customization = gettext(locale, "Background and palette");
     let customization_rows = [
         RowText::new(gettext(locale, "Choose photo"), gettext(locale, "Photo opacity")),
+        RowText::new(gettext(locale, "Photo blur"), ""),
         RowText::new(gettext(locale, "Use my palette"), gettext(locale, "Eyedropper")),
     ];
     if section_matches(&needle, &customization, &customization_rows) {

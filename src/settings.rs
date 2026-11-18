@@ -294,6 +294,7 @@ pub struct Settings {
     pub personal_palette: Option<crate::theme::Palette>,
     pub use_personal_palette: bool,
     pub background_opacity: f32,
+    pub background_blur: u8,
     /// Last accepted appearance, retained if its source file becomes unavailable.
     #[serde(
         default,
@@ -510,6 +511,7 @@ impl Default for Settings {
             personal_palette: None,
             use_personal_palette: false,
             background_opacity: 0.24,
+            background_blur: 0,
             custom_theme_cache: None,
             system_theme_cache: None,
             theme_pair: crate::theme::ThemePair::default(),

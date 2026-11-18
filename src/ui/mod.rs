@@ -46,6 +46,12 @@ pub(super) enum PanelSide {
 
 /// Give the shared edge a gutter and keep the outline readable across themes.
 pub(super) fn panel_frame(app: &App, frame: Frame, side: PanelSide) -> Frame {
+    let frame = if customize::background_visible(app) {
+        let fill = frame.fill.gamma_multiply(0.55);
+        frame.fill(fill)
+    } else {
+        frame
+    };
     if !app.settings.separate_panels {
         return frame;
     }
@@ -117,6 +123,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             ),
         );
     }
+    customize::paint_background(app, ui);
     player_bar::show(app, ui);
     if app.lyrics_fullscreen.is_some() {
         lyrics::fullscreen(app, ui);
@@ -337,8 +344,14 @@ fn page_tint(app: &mut App) -> Option<Color32> {
 fn central(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let tint = page_tint(app);
+    let background_visible = customize::background_visible(app);
+    let fill = if background_visible {
+        Color32::TRANSPARENT
+    } else {
+        palette.window
+    };
     egui::CentralPanel::default()
-        .frame(Frame::new().fill(palette.window))
+        .frame(Frame::new().fill(fill))
         .show(ui, |ui| {
             let rect = ui.max_rect();
             let page = app.page().clone();
@@ -358,7 +371,7 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
                 if app.album_pages.get(id).is_some_and(|page| page.prerelease.is_some()));
             // Countdown pages own their hero gradient. The generic artwork wash
             // otherwise leaves an unrelated color band behind the search bar.
-            if !customize::paint_background(app, ui, rect)
+            if !background_visible
                 && !countdown
                 && let Some((top, bottom)) = header_wash(&palette, overview, tint)
             {
