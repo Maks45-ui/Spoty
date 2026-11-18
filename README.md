@@ -36,15 +36,25 @@ Spoty работает в собственном окне и воспроизв�
 
 Тексты доступны для тех треков, для которых их нашёл источник. Для воспроизведения на этом ПК используй **Spoty Soloist**, если встроенный движок сообщает [об ошибке аудиоключа](https://github.com/librespot-org/librespot/issues/1649).
 
+### Ссылки Spotify из Discord
+
+Начиная со Spoty 0.2.6, ссылки `open.spotify.com` можно открывать через расширение **Open in Spoty**. Установи его один раз в Edge или Chrome, который Windows использует для открытия ссылок:
+
+1. Открой страницу расширений (`edge://extensions` или `chrome://extensions`).
+2. Включи **Режим разработчика**, нажми **Загрузить распакованное расширение** и выбери папку `%LOCALAPPDATA%\Programs\Spoty\browser-extension`. Если Spoty установлен в другую папку, выбери её подпапку `browser-extension`.
+3. Нажми ссылку Spotify в Discord. Трек начнёт играть в Spoty, если вход и воспроизведение уже настроены. Ссылки на альбомы, плейлисты и исполнителей откроют их страницы.
+
+Расширение передаёт тип ссылки и идентификатор Spotify напрямую приложению на этом ПК. На промежуточной странице можно открыть ссылку в веб-плеере.
+
 ## Сборка из исходников
 
 На Windows нужны Rust через rustup и Visual Studio Build Tools с компонентами C++ и Windows SDK.
 
 ```powershell
-cargo build --locked --release --no-default-features --target x86_64-pc-windows-msvc --bin spoty
+cargo build --locked --release --no-default-features --target x86_64-pc-windows-msvc --bins
 ```
 
-Для сборки установщика используй Inno Setup 6 и [скрипт упаковки](packaging/windows/spoty.iss). [GitHub Actions](https://github.com/Maks45-ui/Spoty/actions/workflows/spoty-windows.yml) проверяет установку, автозапуск, вызов `--version` и удаление программы.
+Для сборки установщика используй Inno Setup 6 и [скрипт упаковки](packaging/windows/spoty.iss), передав пути к `spoty.exe` и `spoty-browser.exe` как `/DBinary` и `/DBrowserBinary`. [GitHub Actions](https://github.com/Maks45-ui/Spoty/actions/workflows/spoty-windows.yml) проверяет установку, автозапуск, регистрацию расширения и удаление программы.
 
 ## Происхождение проекта
 

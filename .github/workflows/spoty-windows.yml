@@ -20,7 +20,7 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo build --locked --release --no-default-features --target x86_64-pc-windows-msvc --bin spoty
+          cargo build --locked --release --no-default-features --target x86_64-pc-windows-msvc --bins
       - name: Build installer
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -29,7 +29,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           $binary = Join-Path $PWD 'target\x86_64-pc-windows-msvc\release\spoty.exe'
-          & $iscc "/DBinary=$binary" "/DOutputDir=$PWD\dist" packaging\windows\spoty.iss
+          $browser = Join-Path (Split-Path $binary) 'spoty-browser.exe'
+          & $iscc "/DBinary=$binary" "/DBrowserBinary=$browser" "/DOutputDir=$PWD\dist" packaging\windows\spoty.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Test installation and removal
         run: |
@@ -40,6 +41,17 @@ jobs:
           $binary = Join-Path $installed 'spoty.exe'
           $source = Join-Path $PWD 'target\x86_64-pc-windows-msvc\release\spoty.exe'
           if ((Get-FileHash $binary).Hash -ne (Get-FileHash $source).Hash) { throw 'The installed program does not match the build' }
+          $manifestPath = Join-Path $installed 'spoty-browser-host.json'
+          $extension = Get-Content (Join-Path $installed 'browser-extension\manifest.json') -Raw | ConvertFrom-Json
+          $hostManifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+          if ($extension.manifest_version -ne 3 -or !(Test-Path (Join-Path $installed $hostManifest.path))) { throw 'Browser integration files are missing' }
+          $browserKeys = @(
+            'HKCU:\Software\Google\Chrome\NativeMessagingHosts\io.github.maks45_ui.spoty',
+            'HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\io.github.maks45_ui.spoty'
+          )
+          foreach ($key in $browserKeys) {
+            if ((Get-Item $key).GetValue('') -ne $manifestPath) { throw "Browser host is registered incorrectly: $key" }
+          }
           $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
           $launchCommand = '"' + $binary + '" --start-hidden'
           if ((Get-ItemProperty $runKey -Name Spoty).Spoty -ne $launchCommand) { throw 'Spoty was not added to startup' }
@@ -54,6 +66,9 @@ jobs:
           $result = Start-Process $uninstall -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru -Wait
           if ($result.ExitCode -ne 0 -or (Test-Path $binary)) { throw 'Uninstall failed' }
           if ((Get-ItemProperty $runKey).PSObject.Properties.Name -contains 'Spoty') { throw 'Uninstall left a startup entry behind' }
+          foreach ($key in $browserKeys) {
+            if (Test-Path $key) { throw "Uninstall left a browser registration behind: $key" }
+          }
           "$( (Get-FileHash $setup).Hash.ToLowerInvariant() )  Spoty-Setup-x64.exe" | Set-Content -Encoding ascii dist\SHA256SUMS.txt
       - uses: actions/upload-artifact@v6
         with:

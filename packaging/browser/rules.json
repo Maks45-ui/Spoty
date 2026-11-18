@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "regexSubstitution": "chrome-extension://jjlcgbhicclijibmdlbhijbabadcbbai/open.html?kind=\\1&id=\\2"
+      }
+    },
+    "condition": {
+      "regexFilter": "^https://open[.]spotify[.]com/(?:intl-[A-Za-z0-9-]+/)?(track|album|artist|playlist|show|episode)/([A-Za-z0-9]{22})/?(?:[?#].*)?$",
+      "isUrlFilterCaseSensitive": true,
+      "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 2,
+    "action": { "type": "allow" },
+    "condition": {
+      "urlFilter": "||open.spotify.com/*?spoty-web=1|",
+      "resourceTypes": ["main_frame"]
+    }
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "name": "io.github.maks45_ui.spoty",
+  "description": "Open Spotify links in Spoty",
+  "path": "spoty-browser.exe",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://jjlcgbhicclijibmdlbhijbabadcbbai/"]
+}

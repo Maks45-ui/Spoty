@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Open in Spoty",
+  "description": "Open Spotify links in the Spoty desktop app.",
+  "version": "1.0.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAphgVsCIfL617e75LCwhxiZFe2IKFaPYuQkV0GRJCPfyc5/CjmooV4AzM23wwqsKv8E53jDUW+B8XKc3oXnG+aSTimBlUR6pVgrOL+PYlVYIo+kqCxWpJ2M76GnaAG6IeOJyQkOd0ydcqdmvuzRfxGz2Uf+aOg/nFEtlnmYQ5UVUYgmNwk0JnO+L0PBxgycr5e8kkF32Y+Y2kaOfLa8vuuK1/C06/Bp7K01k/7zNgoEXExc3h6qwgck2khXy3/zv/ZM3+Zg/Zjni86VV/lJJVk+W08TupYqposEMuxr5wC7gWtfbtEqI7K7hRcCh1xPRf5E9AKENekbcJ0o4sYBqOrQIDAQAB",
+  "permissions": ["declarativeNetRequestWithHostAccess", "nativeMessaging"],
+  "host_permissions": ["https://open.spotify.com/*"],
+  "declarative_net_request": {
+    "rule_resources": [
+      { "id": "spotify_links", "enabled": true, "path": "rules.json" }
+    ]
+  },
+  "web_accessible_resources": [
+    { "resources": ["open.html"], "matches": ["<all_urls>"] }
+  ]
+}

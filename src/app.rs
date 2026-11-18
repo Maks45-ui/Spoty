@@ -10020,6 +10020,14 @@ impl App {
         if self.user.is_none() {
             return;
         }
+        if let Some(id) = uri.strip_prefix("spoty:play:track:") {
+            self.pending_link = None;
+            self.actions.push(Action::PlayUris {
+                uris: vec![format!("spotify:track:{id}")],
+                index: 0,
+            });
+            return;
+        }
         if let Some(query) = crate::link::search_query(&uri) {
             self.pending_link = None;
             self.actions.push(Action::Search(query));

@@ -42,6 +42,9 @@ pub fn canonical_context_uri(uri: &str) -> String {
 /// without a locale segment (`/intl-de/`), a query string, or the old
 /// `/user/NAME/playlist/ID` shape.
 pub fn parse(text: &str) -> Option<String> {
+    if let Some(id) = text.trim().strip_prefix("spoty:play:track:") {
+        return is_id(id).then(|| format!("spoty:play:track:{id}"));
+    }
     if let Some(query) = search_query(text) {
         return Some(format!(
             "spotify:search:{}",

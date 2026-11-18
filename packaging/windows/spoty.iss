@@ -1,6 +1,9 @@
 #ifndef Binary
   #error Binary must be defined on the ISCC command line
 #endif
+#ifndef BrowserBinary
+  #error BrowserBinary must be defined on the ISCC command line
+#endif
 #ifndef OutputDir
   #error OutputDir must be defined on the ISCC command line
 #endif
@@ -8,7 +11,7 @@
 [Setup]
 AppId={{DE4F4173-7AC1-4516-A460-F65189FBE53A}
 AppName=Spoty
-AppVersion=0.2.5
+AppVersion=0.2.6
 AppPublisher=Maks45-ui
 AppSupportURL=https://github.com/Maks45-ui/Spoty/issues
 DefaultDirName={localappdata}\Programs\Spoty
@@ -29,6 +32,11 @@ UninstallDisplayIcon={app}\spoty.exe
 
 [Files]
 Source: "{#Binary}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BrowserBinary}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "spoty-browser-host.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\browser\*.json"; DestDir: "{app}\browser-extension"; Flags: ignoreversion
+Source: "..\browser\open.html"; DestDir: "{app}\browser-extension"; Flags: ignoreversion
+Source: "..\browser\open.js"; DestDir: "{app}\browser-extension"; Flags: ignoreversion
 Source: "..\..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -36,6 +44,8 @@ Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{autoprograms}\Spoty"; Filename: "{app}\spoty.exe"
 
 [Registry]
+Root: HKCU; Subkey: "Software\Google\Chrome\NativeMessagingHosts\io.github.maks45_ui.spoty"; ValueType: string; ValueData: "{app}\spoty-browser-host.json"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Microsoft\Edge\NativeMessagingHosts\io.github.maks45_ui.spoty"; ValueType: string; ValueData: "{app}\spoty-browser-host.json"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Spoty"; ValueData: "{code:StartupCommand}"; Check: InitializeStartup; Flags: createvalueifdoesntexist
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Spoty"; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"; ValueType: none; ValueName: "Spoty"; Flags: uninsdeletevalue
