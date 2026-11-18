@@ -787,14 +787,16 @@ pub fn table(app: &mut App, ui: &mut egui::Ui, table: Table<'_>) {
         );
         return;
     }
-    if !app.network_reachable {
-        ui.add_enabled_ui(false, |ui| {
-            ui.multiply_opacity(0.55);
+    super::customize::list_surface(app, ui, |app, ui| {
+        if !app.network_reachable {
+            ui.add_enabled_ui(false, |ui| {
+                ui.multiply_opacity(0.55);
+                table_contents(app, ui, table);
+            });
+        } else {
             table_contents(app, ui, table);
-        });
-    } else {
-        table_contents(app, ui, table);
-    }
+        }
+    });
 }
 
 /// Draws the song table: its header, whose headings change the page's

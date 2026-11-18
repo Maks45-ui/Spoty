@@ -11,7 +11,7 @@
 [Setup]
 AppId={{DE4F4173-7AC1-4516-A460-F65189FBE53A}
 AppName=Spoty
-AppVersion=0.2.8
+AppVersion=0.2.9
 AppPublisher=Maks45-ui
 AppSupportURL=https://github.com/Maks45-ui/Spoty/issues
 DefaultDirName={localappdata}\Programs\Spoty

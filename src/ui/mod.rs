@@ -41,13 +41,17 @@ use crate::theme::{self, Icon};
 pub(super) enum PanelSide {
     Left,
     Right,
+    RightList,
     Bottom,
 }
 
 /// Give the shared edge a gutter and keep the outline readable across themes.
 pub(super) fn panel_frame(app: &App, frame: Frame, side: PanelSide) -> Frame {
     let frame = if customize::background_visible(app) {
-        let fill = frame.fill.gamma_multiply(0.55);
+        let fill = match side {
+            PanelSide::Left | PanelSide::RightList => customize::list_fill(frame.fill),
+            PanelSide::Right | PanelSide::Bottom => frame.fill.gamma_multiply(0.55),
+        };
         frame.fill(fill)
     } else {
         frame
@@ -58,7 +62,7 @@ pub(super) fn panel_frame(app: &App, frame: Frame, side: PanelSide) -> Frame {
     let mut gap = Margin::same(0);
     match side {
         PanelSide::Left => gap.right = 6,
-        PanelSide::Right => gap.left = 6,
+        PanelSide::Right | PanelSide::RightList => gap.left = 6,
         PanelSide::Bottom => gap.top = 6,
     }
     let palette = app.palette;

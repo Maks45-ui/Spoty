@@ -31,7 +31,7 @@ pub fn page(app: &mut App, ui: &mut egui::Ui) {
         });
     });
     ui.add_space(12.0);
-    contents(app, ui, false);
+    super::customize::list_surface(app, ui, |app, ui| contents(app, ui, false));
 }
 
 pub fn side_panel(app: &mut App, ui: &mut egui::Ui) {
@@ -53,7 +53,7 @@ pub fn side_panel(app: &mut App, ui: &mut egui::Ui) {
             Frame::new()
                 .fill(palette.panel)
                 .inner_margin(Margin::symmetric(12, 12)),
-            super::PanelSide::Right,
+            super::PanelSide::RightList,
         ));
     let response = panel.show(ui, |ui| {
         let window_controls = super::window_controls_reservation(

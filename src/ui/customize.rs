@@ -8,6 +8,33 @@ use crate::i18n::gettext;
 use crate::model::Action;
 use crate::theme::{self, Icon, Palette};
 
+/// Backgrounds for dense lists need more coverage than the surrounding chrome.
+pub(super) fn list_fill(color: Color32) -> Color32 {
+    let [red, green, blue, _] = color.to_srgba_unmultiplied();
+    Color32::from_rgba_unmultiplied(red, green, blue, 239)
+}
+
+pub(super) fn list_surface(
+    app: &mut App,
+    ui: &mut egui::Ui,
+    draw: impl FnOnce(&mut App, &mut egui::Ui),
+) {
+    if !background_visible(app) {
+        draw(app, ui);
+        return;
+    }
+    let palette = app.palette;
+    egui::Frame::new()
+        .fill(list_fill(palette.panel))
+        .stroke(egui::Stroke::new(1.0, palette.outline))
+        .corner_radius(theme::RADIUS)
+        .inner_margin(egui::Margin::symmetric(8, 4))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            draw(app, ui);
+        });
+}
+
 pub(super) fn background_visible(app: &App) -> bool {
     app.background_photo.is_some()
         && app.settings.background_opacity > 0.0

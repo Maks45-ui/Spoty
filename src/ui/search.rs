@@ -70,11 +70,17 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         return;
     }
     match app.search.filter {
-        SearchFilter::All => all(app, ui, &results),
-        SearchFilter::Songs => songs(app, ui, &results, usize::MAX),
+        SearchFilter::All => {
+            super::customize::list_surface(app, ui, |app, ui| all(app, ui, &results));
+        }
+        SearchFilter::Songs => {
+            super::customize::list_surface(app, ui, |app, ui| songs(app, ui, &results, usize::MAX));
+        }
         SearchFilter::Artists => artists_grid(app, ui, &results),
         SearchFilter::Albums => albums_grid(app, ui, &results),
-        SearchFilter::Playlists => playlists_grid(app, ui, &results),
+        SearchFilter::Playlists => {
+            super::customize::list_surface(app, ui, |app, ui| playlists_grid(app, ui, &results));
+        }
         SearchFilter::Podcasts => shows_grid(app, ui, &results),
         SearchFilter::Episodes => episodes(app, ui, &results, usize::MAX),
     }
