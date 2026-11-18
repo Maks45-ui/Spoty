@@ -744,6 +744,12 @@ pub enum Command {
         selected:
             std::pin::Pin<Box<dyn std::future::Future<Output = Option<rfd::FileHandle>> + Send>>,
     },
+    LoadBackgroundPhoto,
+    ChooseBackgroundPhoto {
+        selected:
+            std::pin::Pin<Box<dyn std::future::Future<Output = Option<rfd::FileHandle>> + Send>>,
+    },
+    RemoveBackgroundPhoto,
     /// Find the songs in the local files folder, off the UI thread, as the
     /// player does when it starts.
     ScanLocalFiles(std::path::PathBuf),
@@ -987,6 +993,7 @@ pub enum Event {
     AudioCacheCleared(Result<crate::storage::AudioCleared, crate::storage::ClearAudioError>),
     /// The folder picked in the local files dialog; `None` when cancelled.
     LocalFilesFolderChosen(Option<std::path::PathBuf>),
+    BackgroundPhoto(Result<crate::background_photo::Change, String>),
     /// The songs in `folder`, by the `spotify:local:` URIs they play for.
     LocalFiles {
         folder: std::path::PathBuf,
@@ -1408,6 +1415,16 @@ impl Backend {
             .set_title("Choose the local files folder")
             .pick_folder();
         self.send(Command::ChooseLocalFilesFolder {
+            selected: Box::pin(selected),
+        });
+    }
+
+    pub(crate) fn choose_background_photo(&self) {
+        let selected = rfd::AsyncFileDialog::new()
+            .set_title("Choose background photo")
+            .add_filter("JPEG, PNG or WebP photo", &["jpg", "jpeg", "png", "webp"])
+            .pick_file();
+        self.send(Command::ChooseBackgroundPhoto {
             selected: Box::pin(selected),
         });
     }
@@ -2344,6 +2361,41 @@ impl Worker {
                     tokio::spawn(async move {
                         let folder = selected.await.map(|folder| folder.path().to_path_buf());
                         let _ = events.send(Event::LocalFilesFolderChosen(folder));
+                        waker.wake();
+                    });
+                }
+                request @ (Command::LoadBackgroundPhoto
+                | Command::ChooseBackgroundPhoto { .. }
+                | Command::RemoveBackgroundPhoto) => {
+                    let path = self.dirs.config.join("background.jpg");
+                    let events = self.events.clone();
+                    let waker = self.waker.clone();
+                    tokio::spawn(async move {
+                        use crate::background_photo::{self, Change};
+                        let result = match request {
+                            Command::LoadBackgroundPhoto => {
+                                tokio::task::spawn_blocking(move || background_photo::load(&path)).await
+                            }
+                            Command::ChooseBackgroundPhoto { selected } => {
+                                if let Some(source) = selected.await {
+                                    let source = source.path().to_path_buf();
+                                    tokio::task::spawn_blocking(move || background_photo::import(&source, &path)).await
+                                } else {
+                                    Ok(Ok(Change::Keep))
+                                }
+                            }
+                            Command::RemoveBackgroundPhoto => {
+                                tokio::task::spawn_blocking(move || {
+                                    background_photo::remove(&path)?;
+                                    Ok(Change::Replace(None))
+                                }).await
+                            }
+                            _ => unreachable!(),
+                        };
+                        let result = result
+                            .map_err(|error| error.to_string())
+                            .and_then(|result| result.map_err(|error| error.to_string()));
+                        let _ = events.send(Event::BackgroundPhoto(result));
                         waker.wake();
                     });
                 }

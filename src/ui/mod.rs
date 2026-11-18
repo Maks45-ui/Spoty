@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 pub mod artist;
 pub mod collection;
+mod customize;
 pub(crate) mod devices;
 mod dialogs;
 pub(crate) mod friends;
@@ -357,7 +358,10 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
                 if app.album_pages.get(id).is_some_and(|page| page.prerelease.is_some()));
             // Countdown pages own their hero gradient. The generic artwork wash
             // otherwise leaves an unrelated color band behind the search bar.
-            if !countdown && let Some((top, bottom)) = header_wash(&palette, overview, tint) {
+            if !customize::paint_background(app, ui, rect)
+                && !countdown
+                && let Some((top, bottom)) = header_wash(&palette, overview, tint)
+            {
                 widgets::paint_vertical_gradient(ui, header_rect(rect, scrolled), top, bottom);
             }
             ui.spacing_mut().item_spacing = vec2(8.0, 6.0);

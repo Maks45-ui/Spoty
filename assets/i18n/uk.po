@@ -4719,3 +4719,48 @@ msgstr ""
 
 #~ msgid "Spotify does not let apps remove one queued song."
 #~ msgstr "Spotify не дозволяє застосункам видаляти з черги окрему пісню."
+
+msgid "Background and palette"
+msgstr "Фон і палітра"
+
+msgid "Choose photo"
+msgstr "Вибрати фото"
+
+msgid "Photo opacity"
+msgstr "Прозорість фото"
+
+msgid "Use my palette"
+msgstr "Моя палітра"
+
+msgid "Remove photo"
+msgstr "Прибрати фото"
+
+msgid "Eyedropper"
+msgstr "Піпетка"
+
+msgid "Page background"
+msgstr "Фон сторінки"
+
+msgid "Panels"
+msgstr "Панелі"
+
+msgid "Cards"
+msgstr "Картки"
+
+msgid "Text"
+msgstr "Текст"
+
+msgid "Secondary text"
+msgstr "Другорядний текст"
+
+msgid "Accent"
+msgstr "Акцент"
+
+msgid "Text on accent"
+msgstr "Текст на акценті"
+
+msgid "Outlines"
+msgstr "Контури"
+
+msgid "Click a colour in the photo."
+msgstr "Натисни на потрібний колір на фото."

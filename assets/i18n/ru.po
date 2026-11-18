@@ -4716,3 +4716,48 @@ msgstr ""
 
 #~ msgid "Reduce lyrics motion"
 #~ msgstr "Уменьшить анимацию текста"
+
+msgid "Background and palette"
+msgstr "Фон и палитра"
+
+msgid "Choose photo"
+msgstr "Выбрать фото"
+
+msgid "Photo opacity"
+msgstr "Прозрачность фото"
+
+msgid "Use my palette"
+msgstr "Моя палитра"
+
+msgid "Remove photo"
+msgstr "Убрать фото"
+
+msgid "Eyedropper"
+msgstr "Пипетка"
+
+msgid "Page background"
+msgstr "Фон страницы"
+
+msgid "Panels"
+msgstr "Панели"
+
+msgid "Cards"
+msgstr "Карточки"
+
+msgid "Text"
+msgstr "Текст"
+
+msgid "Secondary text"
+msgstr "Вторичный текст"
+
+msgid "Accent"
+msgstr "Акцент"
+
+msgid "Text on accent"
+msgstr "Текст на акценте"
+
+msgid "Outlines"
+msgstr "Контуры"
+
+msgid "Click a colour in the photo."
+msgstr "Нажми на нужный цвет на фото."

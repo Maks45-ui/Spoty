@@ -481,6 +481,8 @@ pub struct App {
     /// applies, on a context that never draws, turn it off.
     pub(crate) reveal_theme_changes: bool,
     pub custom_themes: theme::Catalog,
+    pub(crate) background_photo: Option<crate::background_photo::Photo>,
+    pub(crate) background_photo_busy: bool,
 
     pub auth: AuthStatus,
     pub user: Option<User>,
@@ -1218,6 +1220,8 @@ impl App {
         let palette = settings.fixed_palette().unwrap_or_else(Palette::dark);
         let mut app = Self {
             custom_themes: theme::Catalog::default(),
+            background_photo: None,
+            background_photo_busy: true,
             storage_usage: crate::storage::Usage::default(),
             clearing_audio_cache: false,
             dirs,
@@ -1550,6 +1554,9 @@ impl App {
         if app.autostart_live {
             app.send_autostart(crate::backend::AutostartRequest::Read);
         }
+        if app.background_photo_busy {
+            app.backend.send(Command::LoadBackgroundPhoto);
+        }
         app
     }
 
@@ -1565,6 +1572,9 @@ impl App {
     /// window is (re)created around this long-lived application state.
     pub fn attach(&mut self, ctx: &egui::Context) {
         theme::install(ctx);
+        if let Some(photo) = &mut self.background_photo {
+            photo.texture = None;
+        }
         ctx.add_bytes_loader(std::sync::Arc::new(self.backend.art().clone()));
         ctx.add_image_loader(std::sync::Arc::new(self.backend.art().scaler()));
         // The covers the last window's egui held are gone with it.
@@ -2949,6 +2959,16 @@ impl App {
                     self.set_local_files_folder(Some(folder));
                 }
                 Event::LocalFilesFolderChosen(None) => {}
+                Event::BackgroundPhoto(result) => {
+                    self.background_photo_busy = false;
+                    match result {
+                        Ok(crate::background_photo::Change::Keep) => {}
+                        Ok(crate::background_photo::Change::Replace(photo)) => {
+                            self.background_photo = photo.map(crate::background_photo::Photo::new);
+                        }
+                        Err(message) => self.toast_error(message),
+                    }
+                }
                 Event::LocalFiles { folder, uris } => {
                     // A scan of a folder since replaced says nothing now.
                     if self.settings.local_files_folder().as_ref() == Some(&folder) {
@@ -13633,6 +13653,7 @@ impl App {
                 self.mark_settings_dirty();
             }
             Action::SetTheme(choice) => {
+                self.settings.use_personal_palette = false;
                 self.settings.theme = choice;
                 self.settings.custom_theme = None;
                 self.settings.custom_theme_cache = None;
@@ -13648,6 +13669,7 @@ impl App {
             }
             Action::SetCustomTheme(filename) => {
                 if let Some(theme) = self.custom_themes.find(&filename) {
+                    self.settings.use_personal_palette = false;
                     self.settings.custom_theme_cache = Some(theme.clone());
                     self.settings.custom_theme = Some(filename);
                     self.mark_settings_dirty();

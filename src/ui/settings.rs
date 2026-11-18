@@ -1244,7 +1244,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let player_bar_vis_click = gettext(locale, "Click player bar to change visualizer");
     // Follow system's own light and dark palettes. Omarchy's palette already
     // follows the desktop, so they are offered only without it.
-    let show_pair = app.settings.custom_theme.is_none()
+    let show_pair = !app.settings.use_personal_palette
+        && app.settings.custom_theme.is_none()
         && app.settings.theme == ThemeChoice::System
         && !app.custom_themes.follows_omarchy();
     let pair_row = |base: fastframe_theme::Base| {
@@ -1381,12 +1382,15 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                 theme_buttons_width,
                 |ui| {
                     ui.with_layout(Layout::top_down(Align::Max), |ui| {
-                        let selected = app
-                            .settings
-                            .custom_theme
-                            .as_deref()
-                            .map(|filename| fastframe_theme::display_name(filename).into())
-                            .unwrap_or_else(|| app.settings.theme.label(locale));
+                        let selected = if app.settings.use_personal_palette {
+                            gettext(locale, "Use my palette")
+                        } else {
+                            app.settings
+                                .custom_theme
+                                .as_deref()
+                                .map(|filename| fastframe_theme::display_name(filename).into())
+                                .unwrap_or_else(|| app.settings.theme.label(locale))
+                        };
                         let response = egui::ComboBox::from_id_salt("appearance_theme")
                             .selected_text(selected.as_ref())
                             .width(200.0_f32.min(ui.available_width()))
@@ -1394,7 +1398,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                                 for choice in ThemeChoice::ALL {
                                     if ui
                                         .selectable_label(
-                                            app.settings.custom_theme.is_none()
+                                            !app.settings.use_personal_palette
+                                                && app.settings.custom_theme.is_none()
                                                 && app.settings.theme == choice,
                                             choice.label(locale).as_ref(),
                                         )
@@ -1409,7 +1414,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                                 for theme in app.custom_themes.picker_themes() {
                                     if ui
                                         .selectable_label(
-                                            app.settings.custom_theme.as_deref()
+                                            !app.settings.use_personal_palette
+                                                && app.settings.custom_theme.as_deref()
                                                 == Some(theme.filename.as_str()),
                                             fastframe_theme::display_name(&theme.filename),
                                         )
@@ -1715,6 +1721,16 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                 );
             }
         });
+    }
+
+    let customization = gettext(locale, "Background and palette");
+    let customization_rows = [
+        RowText::new(gettext(locale, "Choose photo"), gettext(locale, "Photo opacity")),
+        RowText::new(gettext(locale, "Use my palette"), gettext(locale, "Eyedropper")),
+    ];
+    if section_matches(&needle, &customization, &customization_rows) {
+        any_visible = true;
+        section(ui, &palette, &customization, |ui| super::customize::editor(app, ui));
     }
 
     let proxy = gettext(locale, "Proxy");

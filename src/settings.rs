@@ -291,6 +291,9 @@ pub struct Settings {
     pub language: LanguageChoice,
     /// Filename selected from the local themes directory.
     pub custom_theme: Option<String>,
+    pub personal_palette: Option<crate::theme::Palette>,
+    pub use_personal_palette: bool,
+    pub background_opacity: f32,
     /// Last accepted appearance, retained if its source file becomes unavailable.
     #[serde(
         default,
@@ -504,6 +507,9 @@ impl Default for Settings {
             theme: ThemeChoice::System,
             language: LanguageChoice::System,
             custom_theme: None,
+            personal_palette: None,
+            use_personal_palette: false,
+            background_opacity: 0.24,
             custom_theme_cache: None,
             system_theme_cache: None,
             theme_pair: crate::theme::ThemePair::default(),
@@ -600,6 +606,9 @@ impl Settings {
     /// The one palette shown whatever the system's appearance: a chosen
     /// palette file, or Omarchy's while Follow system follows it.
     pub(crate) fn fixed_palette(&self) -> Option<crate::theme::Palette> {
+        if self.use_personal_palette && let Some(palette) = self.personal_palette {
+            return Some(palette);
+        }
         let theme = if self.custom_theme.is_some() {
             self.custom_theme_cache.as_ref()
         } else if self.theme == ThemeChoice::System {
